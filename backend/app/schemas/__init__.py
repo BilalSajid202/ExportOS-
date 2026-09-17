@@ -12,6 +12,17 @@ from app.schemas.auth import (
     OrganisationResponse,
     OrganisationUpdateRequest,
 )
+from app.schemas.inquiry import (
+    TextInputInquiryRequest,
+    ArtifactResponse,
+    InquiryDetailResponse,
+)
+from app.schemas.extraction import (
+    ExtractedFieldItem,
+    ExtractionDataSchema,
+    ExtractionResponse,
+    ExtractionConfirmPayload,
+)
 
 __all__ = [
     "HealthResponse",
@@ -22,4 +33,11 @@ __all__ = [
     "CreateUserRequest",
     "OrganisationResponse",
     "OrganisationUpdateRequest",
+    "TextInputInquiryRequest",
+    "ArtifactResponse",
+    "InquiryDetailResponse",
+    "ExtractedFieldItem",
+    "ExtractionDataSchema",
+    "ExtractionResponse",
+    "ExtractionConfirmPayload",
 ]

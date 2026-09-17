@@ -6,6 +6,10 @@ import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Team from './pages/Team';
+import Products from './pages/Products';
+import Inventory from './pages/Inventory';
+import Deals from './pages/Deals';
+import Inquiries from './pages/Inquiries';
 
 export default function App() {
   return (
@@ -25,12 +29,13 @@ export default function App() {
             }
           >
             <Route path="/" element={<Dashboard />} />
+            <Route path="/inquiries" element={<Inquiries />} />
+            <Route path="/deals" element={<Deals />} />
+            <Route path="/deals/:dealId" element={<Deals />} />
+            <Route path="/products" element={<Products />} />
+            <Route path="/inventory" element={<Inventory />} />
+            <Route path="/inventory/:productId" element={<Inventory />} />
             <Route path="/team" element={<Team />} />
-
-            {/* Future Phases */}
-            {/* <Route path="/products" element={<Products />} /> */}
-            {/* <Route path="/inventory" element={<Inventory />} /> */}
-            {/* <Route path="/deals" element={<Deals />} /> */}
           </Route>
 
           {/* Catch-all fallback */}

@@ -16,7 +16,17 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from alembic import context
 
 from app.config import get_settings
-from app.models import Base, Organisation, User
+from app.models import (  # noqa: F401 — register metadata for autogenerate
+    Base,
+    Organisation,
+    User,
+    Product,
+    Deal,
+    DealLineItem,
+    InventoryItem,
+    InventoryTransaction,
+    InventoryReservation,
+)
 
 # ── Alembic Config ────────────────────────────────────────────
 config = context.config

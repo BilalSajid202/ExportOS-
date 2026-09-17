@@ -5,12 +5,11 @@ import { useAuth } from '../context/AuthContext';
 /* ── Sidebar Navigation Items ─────────────────────────────── */
 const navItems = [
   { to: '/', icon: '📊', label: 'Dashboard' },
+  { to: '/inquiries', icon: '📥', label: 'Inquiries' },
+  { to: '/deals', icon: '📋', label: 'Deals' },
+  { to: '/products', icon: '📦', label: 'Products' },
+  { to: '/inventory', icon: '🏭', label: 'Inventory' },
   { to: '/team', icon: '👥', label: 'Team Members' },
-  // Future phases:
-  // { to: '/products', icon: '📦', label: 'Products' },
-  // { to: '/inventory', icon: '🏭', label: 'Inventory' },
-  // { to: '/deals', icon: '📋', label: 'Deals' },
-  // { to: '/copilot', icon: '🤖', label: 'Copilot' },
 ];
 
 const ROLE_BADGES = {

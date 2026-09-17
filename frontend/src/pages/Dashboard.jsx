@@ -46,6 +46,12 @@ export default function Dashboard() {
   const [health, setHealth] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [stats, setStats] = useState({
+    deals: null,
+    products: null,
+    inventory: null,
+    lowStock: null,
+  });
 
   useEffect(() => {
     async function fetchHealth() {
@@ -62,9 +68,27 @@ export default function Dashboard() {
       }
     }
 
-    fetchHealth();
+    async function fetchStats() {
+      try {
+        const [deals, products, inventory] = await Promise.all([
+          api.get('/deals'),
+          api.get('/products'),
+          api.get('/inventory'),
+        ]);
+        setStats({
+          deals: deals.length,
+          products: products.length,
+          inventory: inventory.length,
+          lowStock: inventory.filter((i) => i.is_low_stock).length,
+        });
+      } catch {
+        // Stats are optional on dashboard — auth may still be hydrating
+      }
+    }
 
-    // Refresh health every 30 seconds
+    fetchHealth();
+    fetchStats();
+
     const interval = setInterval(fetchHealth, 30000);
     return () => clearInterval(interval);
   }, []);
@@ -80,7 +104,7 @@ export default function Dashboard() {
           Dashboard
         </h2>
         <p className="mt-1 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-          System overview and health status
+          System overview and inventory-aware operations
         </p>
       </div>
 
@@ -109,7 +133,6 @@ export default function Dashboard() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {/* Backend Status */}
           <div
             className="flex items-center justify-between p-4 rounded-lg"
             style={{ background: 'rgba(15, 23, 42, 0.5)', border: '1px solid var(--color-border)' }}
@@ -128,7 +151,6 @@ export default function Dashboard() {
             <StatusBadge status={backendStatus} />
           </div>
 
-          {/* Database Status */}
           <div
             className="flex items-center justify-between p-4 rounded-lg"
             style={{ background: 'rgba(15, 23, 42, 0.5)', border: '1px solid var(--color-border)' }}
@@ -148,7 +170,6 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Error Message */}
         {error && (
           <div
             className="mt-4 p-3 rounded-lg text-sm"
@@ -163,37 +184,35 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Placeholder Stat Cards — will be wired in future phases */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard icon="📋" label="Active Deals" value="—" delay={200} />
-        <StatCard icon="📦" label="Products" value="—" delay={300} />
-        <StatCard icon="🏭" label="Inventory Items" value="—" delay={400} />
-        <StatCard icon="⚠️" label="Pending Approvals" value="—" delay={500} />
+        <StatCard icon="📋" label="Active Deals" value={stats.deals ?? '—'} delay={200} />
+        <StatCard icon="📦" label="Products" value={stats.products ?? '—'} delay={300} />
+        <StatCard icon="🏭" label="Inventory Items" value={stats.inventory ?? '—'} delay={400} />
+        <StatCard icon="⚠️" label="Low Stock" value={stats.lowStock ?? '—'} delay={500} />
       </div>
 
-      {/* Quick Info */}
       <div className="glass-card p-5 animate-fade-in" style={{ animationDelay: '600ms' }}>
         <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--color-text-secondary)' }}>
-          Phase 0 — Foundation Complete
+          Implementation Progress
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs" style={{ color: 'var(--color-text-muted)' }}>
           <div className="flex items-center gap-2">
-            <span style={{ color: 'var(--color-success)' }}>✓</span> FastAPI + PostgreSQL
+            <span style={{ color: 'var(--color-success)' }}>✓</span> Phase 0 — Foundation
           </div>
           <div className="flex items-center gap-2">
-            <span style={{ color: 'var(--color-success)' }}>✓</span> SQLAlchemy + Alembic
+            <span style={{ color: 'var(--color-success)' }}>✓</span> Phase 1 — Auth & Organisation
           </div>
           <div className="flex items-center gap-2">
-            <span style={{ color: 'var(--color-success)' }}>✓</span> React + Vite + Tailwind
+            <span style={{ color: 'var(--color-success)' }}>✓</span> Phase 2 — Product Catalogue
           </div>
           <div className="flex items-center gap-2">
-            <span style={{ color: 'var(--color-text-muted)' }}>○</span> Authentication (Phase 1)
+            <span style={{ color: 'var(--color-success)' }}>✓</span> Phase 3 — Inventory System
           </div>
           <div className="flex items-center gap-2">
-            <span style={{ color: 'var(--color-text-muted)' }}>○</span> Products (Phase 2)
+            <span style={{ color: 'var(--color-text-muted)' }}>○</span> Phase 4 — Full Deal State Machine
           </div>
           <div className="flex items-center gap-2">
-            <span style={{ color: 'var(--color-text-muted)' }}>○</span> Inventory (Phase 3)
+            <span style={{ color: 'var(--color-text-muted)' }}>○</span> Phase 5+ — Inquiry & AI
           </div>
         </div>
       </div>

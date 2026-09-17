@@ -77,7 +77,12 @@ async function request(endpoint, options = {}) {
       window.dispatchEvent(new CustomEvent('exportos:unauthorized'));
     }
 
-    const message = errorData?.detail || `Request failed with status ${response.status}`;
+    const message =
+      typeof errorData?.detail === 'string'
+        ? errorData.detail
+        : Array.isArray(errorData?.detail)
+          ? errorData.detail.map((d) => d.msg || JSON.stringify(d)).join('; ')
+          : `Request failed with status ${response.status}`;
     throw new ApiError(message, response.status, errorData);
   }
 

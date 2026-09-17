@@ -123,10 +123,10 @@ ExportOS-/
 ## Development Phases
 
 - [x] **Phase 0** — Project Foundation
-- [ ] **Phase 1** — Authentication & Organisation
-- [ ] **Phase 2** — Product Catalogue
-- [ ] **Phase 3** — Inventory System
-- [ ] **Phase 4** — Deal Management
+- [x] **Phase 1** — Authentication & Organisation
+- [x] **Phase 2** — Product Catalogue
+- [x] **Phase 3** — Inventory System
+- [ ] **Phase 4** — Deal Management (full state machine)
 - [ ] **Phase 5** — Inquiry Ingestion
 - [ ] **Phase 6** — AI Extraction
 - [ ] **Phase 7** — AI → Inventory Connection
