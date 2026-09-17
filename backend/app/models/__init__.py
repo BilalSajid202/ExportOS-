@@ -19,6 +19,14 @@ from app.models.inventory import (
 from app.models.deal import Deal, DealLineItem, DealState
 from app.models.artifact import Artifact, ArtifactType, InboundChannel
 from app.models.extraction import ExtractionResult, ExtractionStatus
+from app.models.costing import (
+    CostComponent,
+    DealQuote,
+    Incoterm,
+    CostComponentType,
+    QuoteStatus,
+)
+from app.models.audit import AuditEntry
 
 __all__ = [
     "Base",
@@ -41,4 +49,10 @@ __all__ = [
     "InboundChannel",
     "ExtractionResult",
     "ExtractionStatus",
+    "CostComponent",
+    "DealQuote",
+    "Incoterm",
+    "CostComponentType",
+    "QuoteStatus",
+    "AuditEntry",
 ]

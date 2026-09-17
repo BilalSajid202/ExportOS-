@@ -126,8 +126,8 @@ ExportOS-/
 - [x] **Phase 1** — Authentication & Organisation
 - [x] **Phase 2** — Product Catalogue
 - [x] **Phase 3** — Inventory System
-- [ ] **Phase 4** — Deal Management (full state machine)
-- [ ] **Phase 5** — Inquiry Ingestion
-- [ ] **Phase 6** — AI Extraction
-- [ ] **Phase 7** — AI → Inventory Connection
-- [ ] **Phase 8** — Quotation & Costing
+- [x] **Phase 4** — Deal Management (full state machine & audit log)
+- [x] **Phase 5** — Inquiry Ingestion (multi-channel artifacts)
+- [x] **Phase 6** — AI Extraction (Qwen 2.5 with rotating keys)
+- [x] **Phase 7** — AI → Inventory Connection & Shortfall Resolution
+- [x] **Phase 8** — Quotation & Incoterm Costing Engine
