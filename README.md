@@ -57,7 +57,8 @@ copy .env.example .env
 alembic upgrade head
 
 # Start the development server
-uvicorn app.main:app --reload --port 8000
+python run.py
+# (or: uvicorn app.main:app --reload --port 8000)
 ```
 
 The API will be available at **http://localhost:8000**
