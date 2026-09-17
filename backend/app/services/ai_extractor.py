@@ -122,7 +122,7 @@ Do NOT invent missing details. If a value is not mentioned in the message, outpu
         model_id = settings.HF_MODEL or "Qwen/Qwen2.5-72B-Instruct"
 
         # Hugging Face serverless chat completion endpoint (OpenAI compatible)
-        endpoint = "https://router.huggingface.co/hf-inference/v1/chat/completions"
+        endpoint = settings.HF_API_URL or "https://router.huggingface.co/v1/chat/completions"
 
         max_attempts = max(len(keys), 1)
 

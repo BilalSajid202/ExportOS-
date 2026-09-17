@@ -6,7 +6,7 @@ Crashes early on misconfiguration so problems surface at startup, not at runtime
 """
 
 from functools import lru_cache
-from typing import List
+from typing import List, Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -17,6 +17,7 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=False,
+        extra="allow",
     )
 
     # ── Database ──────────────────────────────────────────────
@@ -29,9 +30,14 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24 hours
 
     # ── AI / Hugging Face Qwen Configuration ──────────────────
-    # Multiple comma-separated keys for auto-rotation on rate limits: hf_key1,hf_key2,hf_key3
+    HF_MODEL: str = "Qwen/Qwen2.5-Coder-32B-Instruct"
+    HF_API_URL: str = "https://router.huggingface.co/v1/chat/completions"
     HF_API_KEYS: str = ""
-    HF_MODEL: str = "Qwen/Qwen2.5-72B-Instruct"
+    HF_API_KEY_1: Optional[str] = None
+    HF_API_KEY_2: Optional[str] = None
+    HF_API_KEY_3: Optional[str] = None
+    HF_API_KEY_4: Optional[str] = None
+    HF_API_KEY_5: Optional[str] = None
 
     # ── Storage ───────────────────────────────────────────────
     UPLOAD_DIR: str = "uploads"
@@ -53,10 +59,25 @@ class Settings(BaseSettings):
 
     @property
     def hf_keys_list(self) -> List[str]:
-        """Parse comma-separated Hugging Face API keys."""
-        if not self.HF_API_KEYS:
-            return []
-        return [k.strip() for k in self.HF_API_KEYS.split(",") if k.strip()]
+        """Aggregate Hugging Face API keys from individual numbered keys or comma-separated list."""
+        keys: List[str] = []
+        for individual in [
+            self.HF_API_KEY_1,
+            self.HF_API_KEY_2,
+            self.HF_API_KEY_3,
+            self.HF_API_KEY_4,
+            self.HF_API_KEY_5,
+        ]:
+            if individual and individual.strip():
+                keys.append(individual.strip())
+
+        if self.HF_API_KEYS:
+            for k in self.HF_API_KEYS.split(","):
+                k_clean = k.strip()
+                if k_clean and k_clean not in keys:
+                    keys.append(k_clean)
+
+        return keys
 
     @property
     def cors_origins_list(self) -> list[str]:
