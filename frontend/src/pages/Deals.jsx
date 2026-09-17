@@ -68,6 +68,7 @@ export default function Deals() {
   const { user, isAdmin } = useAuth();
   const canCreate = isAdmin || ['EXPORT_MANAGER', 'SALES'].includes(user?.role);
   const canApproveQuote = isAdmin || user?.role === 'EXPORT_MANAGER';
+  const canManageDocs = isAdmin || ['EXPORT_MANAGER', 'DOCUMENTATION_OFFICER'].includes(user?.role);
   const canReserve = isAdmin || ['EXPORT_MANAGER', 'ACCOUNTS'].includes(user?.role);
 
   const [deals, setDeals] = useState([]);
@@ -75,8 +76,10 @@ export default function Deals() {
   const [availability, setAvailability] = useState(null);
   const [costing, setCosting] = useState(null);
   const [auditLog, setAuditLog] = useState([]);
+  const [documentSet, setDocumentSet] = useState(null);
+  const [consistency, setConsistency] = useState(null);
   const [products, setProducts] = useState([]);
-  const [activeTab, setActiveTab] = useState('inventory'); // 'inventory', 'costing', 'audit'
+  const [activeTab, setActiveTab] = useState('inventory'); // 'inventory', 'costing', 'documents', 'audit'
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -119,6 +122,12 @@ export default function Deals() {
   });
   const [isQuoting, setIsQuoting] = useState(false);
 
+  // Document Preview Modal
+  const [previewDoc, setPreviewDoc] = useState(null);
+  const [previewHtml, setPreviewHtml] = useState('');
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+  const [isGeneratingDocs, setIsGeneratingDocs] = useState(false);
+
   // Transition State Modal
   const [isTransitionModalOpen, setIsTransitionModalOpen] = useState(false);
   const [transitionTarget, setTransitionTarget] = useState('');
@@ -159,6 +168,25 @@ export default function Deals() {
         initEditableFields(ext.extracted_data);
       } catch {
         setExtraction(null);
+      }
+
+      // Try loading documents & consistency audit
+      try {
+        const docs = await api.get(`/deals/${id}/documents`);
+        setDocumentSet(docs);
+        if (docs) {
+          try {
+            const auditRes = await api.get(`/deals/${id}/documents/consistency-check`);
+            setConsistency(auditRes);
+          } catch {
+            setConsistency(null);
+          }
+        } else {
+          setConsistency(null);
+        }
+      } catch {
+        setDocumentSet(null);
+        setConsistency(null);
       }
     } catch (err) {
       setError(err.message || 'Failed to load deal');
@@ -246,6 +274,62 @@ export default function Deals() {
       await loadDeal(deal.id);
     } catch (err) {
       setError(err.message || 'Failed to reserve inventory');
+    }
+  };
+
+  const handleConfirmOrder = async () => {
+    try {
+      await api.post(`/deals/${deal.id}/confirm`);
+      setActionSuccess('Order confirmed! Deal state moved to CONFIRMED & stock reserved.');
+      await loadDeal(deal.id);
+    } catch (err) {
+      setError(err.message || 'Failed to confirm order');
+    }
+  };
+
+  const handleGenerateDocuments = async () => {
+    setIsGeneratingDocs(true);
+    try {
+      const docSetRes = await api.post(`/deals/${deal.id}/documents/generate`, {
+        override_port_of_loading: 'Karachi Port (PKBQM/PKKHI), Pakistan',
+        payment_terms: '100% LC at sight',
+      });
+      setDocumentSet(docSetRes);
+      setActionSuccess(`Generated complete export document set (Revision #${docSetRes.revision_number})!`);
+      await loadDeal(deal.id);
+      setActiveTab('documents');
+    } catch (err) {
+      setError(err.message || 'Failed to generate document set');
+    } finally {
+      setIsGeneratingDocs(false);
+    }
+  };
+
+  const openDocumentPreview = async (doc) => {
+    setPreviewDoc(doc);
+    setIsPreviewLoading(true);
+    try {
+      const res = await fetch(`/api/documents/${doc.id}/html`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('exportos_access_token')}`,
+        },
+      });
+      const html = await res.text();
+      setPreviewHtml(html);
+    } catch (err) {
+      setError(err.message || 'Failed to load document preview');
+    } finally {
+      setIsPreviewLoading(false);
+    }
+  };
+
+  const handleApproveDocument = async (docId) => {
+    try {
+      await api.post(`/documents/${docId}/approve`);
+      setActionSuccess('Document officially approved!');
+      await loadDeal(deal.id);
+    } catch (err) {
+      setError(err.message || 'Failed to approve document');
     }
   };
 
@@ -392,6 +476,25 @@ export default function Deals() {
 
               {/* Action Buttons */}
               <div className="flex flex-wrap items-center gap-3">
+                {deal.state === 'QUOTED' && (
+                  <button
+                    onClick={handleConfirmOrder}
+                    className="px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-emerald-600/20 transition flex items-center gap-1.5"
+                  >
+                    <span>🤝</span> Confirm Order (Phase 9)
+                  </button>
+                )}
+
+                {canManageDocs && (
+                  <button
+                    onClick={handleGenerateDocuments}
+                    disabled={isGeneratingDocs}
+                    className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-indigo-600/20 transition flex items-center gap-1.5 disabled:opacity-50"
+                  >
+                    {isGeneratingDocs ? 'Generating Docs...' : '📄 Generate Export Document Set'}
+                  </button>
+                )}
+
                 <button
                   onClick={runAIExtraction}
                   disabled={isExtracting}
@@ -477,7 +580,7 @@ export default function Deals() {
                   <div>
                     <h2 className="text-base font-bold text-white">AI Extraction Review & Grounding</h2>
                     <p className="text-xs text-slate-400 font-mono">
-                      Qwen 2.5 72B • Status: <span className="text-indigo-400 font-bold">{extraction.status}</span>
+                      Qwen 2.5 32B • Status: <span className="text-indigo-400 font-bold">{extraction.status}</span>
                     </p>
                   </div>
                 </div>
@@ -545,7 +648,7 @@ export default function Deals() {
                 activeTab === 'inventory' ? 'text-indigo-400 border-b-2 border-indigo-500' : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              📦 Inventory & Shortfall Check
+              📦 Inventory & Stock Check
             </button>
             <button
               onClick={() => setActiveTab('costing')}
@@ -554,6 +657,14 @@ export default function Deals() {
               }`}
             >
               💵 Incoterm Costing & Quotation
+            </button>
+            <button
+              onClick={() => setActiveTab('documents')}
+              className={`pb-3 px-1 transition relative ${
+                activeTab === 'documents' ? 'text-indigo-400 border-b-2 border-indigo-500' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              📄 Export Documents & Consistency ({documentSet?.documents?.length || 0})
             </button>
             <button
               onClick={() => setActiveTab('audit')}
@@ -568,7 +679,6 @@ export default function Deals() {
           {/* ── TAB 1: Inventory & Shortfall ──────────────────────────── */}
           {activeTab === 'inventory' && (
             <div className="space-y-6">
-              {/* Shortfall Alert Banner if any line has shortfall */}
               {availability?.lines?.some((l) => l.shortfall > 0) && (
                 <div className="p-5 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/30 rounded-3xl space-y-3">
                   <div className="flex items-center gap-3">
@@ -606,7 +716,6 @@ export default function Deals() {
                 </div>
               )}
 
-              {/* Line Items List */}
               <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 space-y-4">
                 <div className="flex items-center justify-between">
                   <h2 className="text-sm font-bold text-slate-200 uppercase tracking-wider">
@@ -669,7 +778,6 @@ export default function Deals() {
           {/* ── TAB 2: Costing & Incoterm Quotation ─────────────────────── */}
           {activeTab === 'costing' && (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              {/* Left Column: Cost Breakdown */}
               <div className="lg:col-span-7 bg-slate-900/80 border border-slate-800 rounded-3xl p-6 space-y-5">
                 <div className="flex items-center justify-between">
                   <div>
@@ -728,7 +836,6 @@ export default function Deals() {
                 )}
               </div>
 
-              {/* Right Column: Incoterm Quotation Engine */}
               <div className="lg:col-span-5 space-y-6">
                 <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 space-y-4">
                   <h2 className="text-base font-bold text-white">Incoterm Quotation Engine</h2>
@@ -800,7 +907,6 @@ export default function Deals() {
                     </button>
                   </form>
 
-                  {/* Active Quotation Card */}
                   {costing?.active_quote && (
                     <div className="mt-5 p-4 bg-slate-950/80 border border-indigo-500/30 rounded-2xl space-y-3">
                       <div className="flex items-center justify-between">
@@ -854,7 +960,137 @@ export default function Deals() {
             </div>
           )}
 
-          {/* ── TAB 3: Audit Trail ────────────────────────────────────── */}
+          {/* ── TAB 3: Export Documents & Consistency Audit ───────────── */}
+          {activeTab === 'documents' && (
+            <div className="space-y-6">
+              {/* Consistency Audit Scorecard */}
+              {consistency && (
+                <div className={`p-6 rounded-3xl border shadow-xl ${
+                  consistency.is_consistent
+                    ? 'bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-transparent border-emerald-500/30'
+                    : 'bg-gradient-to-r from-rose-500/10 via-rose-500/5 to-transparent border-rose-500/30'
+                }`}>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl font-black ${
+                        consistency.is_consistent ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'
+                      }`}>
+                        {consistency.score}%
+                      </div>
+                      <div>
+                        <h3 className="text-base font-bold text-white flex items-center gap-2">
+                          Cross-Document Consistency Audit
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                            consistency.is_consistent ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'
+                          }`}>
+                            {consistency.is_consistent ? 'PASSED — 100% Consistent' : 'DISCREPANCIES FOUND'}
+                          </span>
+                        </h3>
+                        <p className="text-xs text-slate-300 mt-0.5">{consistency.summary_message}</p>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={handleGenerateDocuments}
+                      disabled={isGeneratingDocs}
+                      className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold border border-slate-700 transition"
+                    >
+                      Re-generate & Audit
+                    </button>
+                  </div>
+
+                  {/* Audit Checklist Items */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 pt-5 mt-5 border-t border-slate-800/80">
+                    {consistency.checks.map((c, i) => (
+                      <div key={i} className="p-3 bg-slate-950/70 border border-slate-800 rounded-2xl flex items-start gap-2.5">
+                        <span className="text-sm mt-0.5">{c.is_valid ? '✅' : '❌'}</span>
+                        <div className="text-xs">
+                          <div className="font-bold text-white">{c.check_name}</div>
+                          <p className="text-[11px] text-slate-400 mt-0.5">{c.message}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Generated Documents Cards Grid */}
+              <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 space-y-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <h2 className="text-base font-bold text-white">Authoritative Export Documents</h2>
+                    <p className="text-xs text-slate-400">
+                      Revision #{documentSet?.revision_number || 1} • Single source of truth for Customs, Shipping & Bank Form-E
+                    </p>
+                  </div>
+
+                  {canManageDocs && (
+                    <button
+                      onClick={handleGenerateDocuments}
+                      disabled={isGeneratingDocs}
+                      className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-indigo-600/20 transition flex items-center gap-1.5 disabled:opacity-50"
+                    >
+                      <span>⚡</span> {documentSet ? 'Re-generate Document Set' : 'Generate Export Document Set'}
+                    </button>
+                  )}
+                </div>
+
+                {!documentSet || documentSet.documents?.length === 0 ? (
+                  <div className="text-center py-12 text-slate-500 text-sm">
+                    No documents generated yet. Click "Generate Export Document Set" to produce Proforma Invoice, Commercial Invoice, Packing List, and Certificate of Origin.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {documentSet.documents.map((doc) => (
+                      <div
+                        key={doc.id}
+                        className="p-5 bg-slate-950/70 border border-slate-800 rounded-2xl hover:border-indigo-500/40 transition space-y-3"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-mono text-xs font-bold text-indigo-400">
+                            {doc.document_number}
+                          </span>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
+                            doc.status === 'APPROVED'
+                              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                              : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                          }`}>
+                            {doc.status}
+                          </span>
+                        </div>
+
+                        <div className="font-bold text-white text-sm">{doc.title}</div>
+
+                        <div className="text-[11px] text-slate-400 font-mono truncate" title={doc.sha256_hash}>
+                          SHA-256: {doc.sha256_hash.slice(0, 16)}...{doc.sha256_hash.slice(-8)}
+                        </div>
+
+                        <div className="pt-2 flex items-center justify-between gap-2 border-t border-slate-800/80">
+                          <button
+                            onClick={() => openDocumentPreview(doc)}
+                            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold border border-slate-700 transition flex items-center gap-1"
+                          >
+                            <span>👁️</span> View & Print
+                          </button>
+
+                          {canManageDocs && doc.status === 'DRAFT' && (
+                            <button
+                              onClick={() => handleApproveDocument(doc.id)}
+                              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-emerald-600/20 transition flex items-center gap-1"
+                            >
+                              <span>✓</span> Approve
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ── TAB 4: Audit Trail ────────────────────────────────────── */}
           {activeTab === 'audit' && (
             <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 space-y-4">
               <h2 className="text-base font-bold text-white">Immutable Audit Trail</h2>
@@ -1177,6 +1413,55 @@ export default function Deals() {
                   Confirm Transition
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: Document Printable Preview ───────────────────────── */}
+      {previewDoc && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-4xl w-full h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+            <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-950">
+              <div>
+                <h3 className="text-sm font-bold text-white">{previewDoc.title}</h3>
+                <p className="text-xs text-slate-400 font-mono">
+                  {previewDoc.document_number} • SHA-256: {previewDoc.sha256_hash.slice(0, 16)}...
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    const printWin = window.open('', '_blank');
+                    printWin.document.write(previewHtml);
+                    printWin.document.close();
+                    printWin.print();
+                  }}
+                  className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5"
+                >
+                  <span>🖨️</span> Print / Save PDF
+                </button>
+                <button
+                  onClick={() => setPreviewDoc(null)}
+                  className="p-2 text-slate-400 hover:text-white rounded-lg"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-auto p-4 bg-slate-900">
+              {isPreviewLoading ? (
+                <div className="h-full flex items-center justify-center text-slate-400 text-sm">
+                  Loading document view...
+                </div>
+              ) : (
+                <iframe
+                  title="Document Preview"
+                  srcDoc={previewHtml}
+                  className="w-full h-full rounded-2xl bg-white border-0 shadow-lg"
+                />
+              )}
             </div>
           </div>
         </div>

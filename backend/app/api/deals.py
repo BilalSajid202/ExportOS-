@@ -262,6 +262,62 @@ async def transition_deal(
     return _serialize_deal(updated_deal)
 
 
+@router.post(
+    "/{deal_id}/confirm",
+    response_model=DealResponse,
+    summary="Confirm deal order and trigger stock allocation/reservation",
+)
+async def confirm_deal(
+    deal_id: UUID,
+    current_user: User = Depends(_DEAL_WRITERS),
+    db: AsyncSession = Depends(get_db),
+) -> DealResponse:
+    """
+    Phase 9 Order Confirmation:
+      1. Transitions deal state to CONFIRMED
+      2. Attempts stock reservation for available line items
+      3. Records confirmation in audit trail
+    """
+    deal = await _get_tenant_deal(db, current_user.organisation_id, deal_id)
+
+    # 1. Transition to CONFIRMED
+    updated_deal = await deal_state_service.transition_deal_state(
+        db=db,
+        deal=deal,
+        target_state=DealState.CONFIRMED,
+        user=current_user,
+        reason="Order confirmed by buyer / signed proforma invoice",
+    )
+
+    # 2. Try auto-reserving stock if all lines are available
+    can_reserve = True
+    for li in updated_deal.line_items:
+        data = await inventory_service.check_product_availability(
+            db,
+            organisation_id=current_user.organisation_id,
+            product_id=li.product_id,
+            requested_quantity=li.quantity,
+        )
+        if data["status"] != AvailabilityStatus.AVAILABLE:
+            can_reserve = False
+            break
+
+    if can_reserve:
+        for li in updated_deal.line_items:
+            await inventory_service.reserve_stock(
+                db,
+                organisation_id=current_user.organisation_id,
+                product_id=li.product_id,
+                quantity=li.quantity,
+                user=current_user,
+                deal_id=updated_deal.id,
+                notes=f"Auto-reserved upon order confirmation for {updated_deal.reference}",
+            )
+        await db.commit()
+
+    return _serialize_deal(updated_deal)
+
+
 # ── Inventory Availability & Shortfall Actions ─────────────────
 
 @router.get(

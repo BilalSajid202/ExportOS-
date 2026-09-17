@@ -27,6 +27,12 @@ from app.models.costing import (
     QuoteStatus,
 )
 from app.models.audit import AuditEntry
+from app.models.documents import (
+    DocumentSet,
+    GeneratedDocument,
+    DocumentType,
+    DocumentStatus,
+)
 
 __all__ = [
     "Base",
@@ -55,4 +61,8 @@ __all__ = [
     "CostComponentType",
     "QuoteStatus",
     "AuditEntry",
+    "DocumentSet",
+    "GeneratedDocument",
+    "DocumentType",
+    "DocumentStatus",
 ]
