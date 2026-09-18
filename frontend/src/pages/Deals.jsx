@@ -79,7 +79,20 @@ export default function Deals() {
   const [documentSet, setDocumentSet] = useState(null);
   const [consistency, setConsistency] = useState(null);
   const [products, setProducts] = useState([]);
-  const [activeTab, setActiveTab] = useState('inventory'); // 'inventory', 'costing', 'documents', 'audit'
+  const [activeTab, setActiveTab] = useState('inventory'); // 'inventory', 'costing', 'documents', 'compliance', 'audit'
+
+  // Phase 12 Compliance State
+  const [complianceSummary, setComplianceSummary] = useState(null);
+  const [isComplianceLoading, setIsComplianceLoading] = useState(false);
+  const [selectedCheck, setSelectedCheck] = useState(null);
+  const [checkStatusForm, setCheckStatusForm] = useState({ status: 'OBTAINED', notes: '', evidence_ref: '' });
+  const [isCheckUpdating, setIsCheckUpdating] = useState(false);
+  const [hsSuggestions, setHsSuggestions] = useState({});
+  const [isHsLoading, setIsHsLoading] = useState(false);
+  const [regQuery, setRegQuery] = useState('');
+  const [regResponse, setRegResponse] = useState(null);
+  const [isRegLoading, setIsRegLoading] = useState(false);
+  const [complianceFilter, setComplianceFilter] = useState('ALL');
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -187,6 +200,14 @@ export default function Deals() {
       } catch {
         setDocumentSet(null);
         setConsistency(null);
+      }
+
+      // Try loading compliance checklist & summary
+      try {
+        const comp = await api.get(`/compliance/deals/${id}`);
+        setComplianceSummary(comp);
+      } catch {
+        setComplianceSummary(null);
       }
     } catch (err) {
       setError(err.message || 'Failed to load deal');
@@ -405,6 +426,91 @@ export default function Deals() {
       await loadDeal(deal.id);
     } catch (err) {
       setError(err.message || 'Failed to transition deal state');
+    }
+  };
+
+  // ── Phase 12 Compliance Action Handlers ───────────────────────
+  const handleRegenerateCompliance = async () => {
+    if (!deal) return;
+    setIsComplianceLoading(true);
+    try {
+      const updated = await api.post(`/compliance/deals/${deal.id}/regenerate`);
+      setComplianceSummary(updated);
+      setActionSuccess('Compliance checklist re-evaluated against latest deal terms!');
+    } catch (err) {
+      setError(err.message || 'Failed to regenerate compliance checklist');
+    } finally {
+      setIsComplianceLoading(false);
+    }
+  };
+
+  const handleUpdateCheck = async (e) => {
+    e.preventDefault();
+    if (!deal || !selectedCheck) return;
+    setIsCheckUpdating(true);
+    try {
+      await api.put(`/compliance/deals/${deal.id}/checks/${selectedCheck.id}`, checkStatusForm);
+      setSelectedCheck(null);
+      setActionSuccess(`Updated compliance check: ${selectedCheck.title}`);
+      const updated = await api.get(`/compliance/deals/${deal.id}`);
+      setComplianceSummary(updated);
+    } catch (err) {
+      setError(err.message || 'Failed to update check status');
+    } finally {
+      setIsCheckUpdating(false);
+    }
+  };
+
+  const handleSuggestHS = async (lineItem) => {
+    if (!deal) return;
+    setIsHsLoading(true);
+    try {
+      const res = await api.post(`/compliance/deals/${deal.id}/hs-suggest`, {
+        product_id: lineItem.product_id,
+        product_name: lineItem.product?.name,
+        description: lineItem.description,
+      });
+      setHsSuggestions((prev) => ({ ...prev, [lineItem.id]: res }));
+      setActionSuccess(`Suggested HS Code: ${res.suggested_code} for ${lineItem.product?.name || 'Line Item'}`);
+    } catch (err) {
+      setError(err.message || 'Failed to suggest HS Code');
+    } finally {
+      setIsHsLoading(false);
+    }
+  };
+
+  const handleConfirmHS = async (lineItemId, confirmedCode, productId) => {
+    if (!deal) return;
+    try {
+      const res = await api.post(`/compliance/deals/${deal.id}/hs-confirm`, {
+        confirmed_code: confirmedCode,
+        product_id: productId,
+        update_catalogue: true,
+      });
+      setHsSuggestions((prev) => ({ ...prev, [lineItemId]: res }));
+      setActionSuccess(`Confirmed HS Code ${confirmedCode} & synced to Product Catalogue!`);
+      await loadDeal(deal.id);
+    } catch (err) {
+      setError(err.message || 'Failed to confirm HS Code');
+    }
+  };
+
+  const handleAskRegulation = async (e) => {
+    e?.preventDefault();
+    if (!regQuery.trim()) return;
+    setIsRegLoading(true);
+    try {
+      const res = await api.post('/compliance/regulations/query', {
+        query: regQuery,
+        deal_id: deal?.id,
+        destination_country: deal?.notes,
+        incoterm: costing?.quote?.incoterm,
+      });
+      setRegResponse(res);
+    } catch (err) {
+      setError(err.message || 'Regulation query failed');
+    } finally {
+      setIsRegLoading(false);
     }
   };
 
@@ -641,10 +747,10 @@ export default function Deals() {
           )}
 
           {/* Navigation Tabs for Sections */}
-          <div className="flex border-b border-slate-800 gap-6 text-sm font-semibold">
+          <div className="flex border-b border-slate-800 gap-6 text-sm font-semibold overflow-x-auto">
             <button
               onClick={() => setActiveTab('inventory')}
-              className={`pb-3 px-1 transition relative ${
+              className={`pb-3 px-1 transition relative whitespace-nowrap ${
                 activeTab === 'inventory' ? 'text-indigo-400 border-b-2 border-indigo-500' : 'text-slate-400 hover:text-slate-200'
               }`}
             >
@@ -652,7 +758,7 @@ export default function Deals() {
             </button>
             <button
               onClick={() => setActiveTab('costing')}
-              className={`pb-3 px-1 transition relative ${
+              className={`pb-3 px-1 transition relative whitespace-nowrap ${
                 activeTab === 'costing' ? 'text-indigo-400 border-b-2 border-indigo-500' : 'text-slate-400 hover:text-slate-200'
               }`}
             >
@@ -660,15 +766,32 @@ export default function Deals() {
             </button>
             <button
               onClick={() => setActiveTab('documents')}
-              className={`pb-3 px-1 transition relative ${
+              className={`pb-3 px-1 transition relative whitespace-nowrap ${
                 activeTab === 'documents' ? 'text-indigo-400 border-b-2 border-indigo-500' : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              📄 Export Documents & Consistency ({documentSet?.documents?.length || 0})
+              📄 Export Documents ({documentSet?.documents?.length || 0})
+            </button>
+            <button
+              onClick={() => setActiveTab('compliance')}
+              className={`pb-3 px-1 transition relative whitespace-nowrap flex items-center gap-1.5 ${
+                activeTab === 'compliance' ? 'text-indigo-400 border-b-2 border-indigo-500' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <span>🛡️</span> Compliance & SBP Regulations
+              {complianceSummary && (
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                  complianceSummary.is_fully_compliant
+                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                    : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                }`}>
+                  {complianceSummary.mandatory_completed}/{complianceSummary.mandatory_total}
+                </span>
+              )}
             </button>
             <button
               onClick={() => setActiveTab('audit')}
-              className={`pb-3 px-1 transition relative ${
+              className={`pb-3 px-1 transition relative whitespace-nowrap ${
                 activeTab === 'audit' ? 'text-indigo-400 border-b-2 border-indigo-500' : 'text-slate-400 hover:text-slate-200'
               }`}
             >
@@ -1090,7 +1213,460 @@ export default function Deals() {
             </div>
           )}
 
-          {/* ── TAB 4: Audit Trail ────────────────────────────────────── */}
+          {/* ── TAB 4: Compliance & SBP Regulations (Phase 12) ─────────── */}
+          {activeTab === 'compliance' && (
+            <div className="space-y-6">
+              {/* Compliance Summary & Health Card */}
+              <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 shadow-2xl backdrop-blur-xl">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-6 border-b border-slate-800">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl">🛡️</span>
+                      <h2 className="text-xl font-bold text-white tracking-tight">Regulatory Compliance & SBP FX Health</h2>
+                      {complianceSummary && (
+                        <span
+                          className={`px-3 py-1 rounded-full text-xs font-bold border ${
+                            complianceSummary.is_fully_compliant
+                              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                              : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                          }`}
+                        >
+                          {complianceSummary.is_fully_compliant ? '✓ Fully Compliant' : '⚠️ Action Required'}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-400">
+                      State Bank of Pakistan (SBP) Foreign Exchange Manual Chapter XII, Destination Customs & Incoterms 2020 Rules
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={handleRegenerateCompliance}
+                    disabled={isComplianceLoading}
+                    className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-indigo-600/20 transition flex items-center gap-2 disabled:opacity-50 self-start lg:self-auto"
+                  >
+                    {isComplianceLoading ? (
+                      <>
+                        <div className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                        <span>Evaluating Rules...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>⚡</span> Re-evaluate Checklist
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {/* Metrics Grid */}
+                {complianceSummary ? (
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-6">
+                    <div className="p-4 bg-slate-950/60 border border-slate-800/80 rounded-2xl">
+                      <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Mandatory Checks</div>
+                      <div className="text-2xl font-extrabold text-white mt-1">
+                        {complianceSummary.mandatory_completed} / {complianceSummary.mandatory_total}
+                      </div>
+                      <div className="text-[10px] text-slate-500 mt-0.5">
+                        {complianceSummary.mandatory_total - complianceSummary.mandatory_completed === 0
+                          ? 'All mandatory cleared'
+                          : `${complianceSummary.mandatory_total - complianceSummary.mandatory_completed} pending clearance`}
+                      </div>
+                    </div>
+
+                    <div className="p-4 bg-slate-950/60 border border-slate-800/80 rounded-2xl">
+                      <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Overall Progress</div>
+                      <div className="text-2xl font-extrabold text-indigo-400 mt-1">
+                        {Math.round(complianceSummary.progress_percentage || 0)}%
+                      </div>
+                      <div className="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
+                        <div
+                          className="bg-indigo-500 h-full rounded-full transition-all duration-500"
+                          style={{ width: `${complianceSummary.progress_percentage || 0}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="p-4 bg-slate-950/60 border border-slate-800/80 rounded-2xl">
+                      <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Destination Rule</div>
+                      <div className="text-base font-bold text-slate-200 mt-1 truncate" title={complianceSummary.destination_country}>
+                        {complianceSummary.destination_country || 'General Export'}
+                      </div>
+                      <div className="text-[10px] text-slate-500 mt-0.5">Customs regime applied</div>
+                    </div>
+
+                    <div className="p-4 bg-slate-950/60 border border-slate-800/80 rounded-2xl">
+                      <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Incoterm & Payment</div>
+                      <div className="text-base font-bold text-slate-200 mt-1">
+                        {complianceSummary.incoterm || 'EXW'} • SBP Form-E
+                      </div>
+                      <div className="text-[10px] text-slate-500 mt-0.5">FE Manual Ch XII Active</div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="pt-6 text-center text-xs text-slate-500">
+                    No compliance evaluation generated yet. Click "Re-evaluate Checklist" to assemble rules.
+                  </div>
+                )}
+
+                {/* Warnings / High-Risk Alerts */}
+                {complianceSummary?.warnings?.length > 0 && (
+                  <div className="mt-6 p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl space-y-1.5">
+                    <div className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
+                      <span>⚠️</span> Regulatory Warnings & Requirements:
+                    </div>
+                    <ul className="text-xs text-amber-300 space-y-1 pl-5 list-disc">
+                      {complianceSummary.warnings.map((w, i) => (
+                        <li key={i}>{w}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+
+              {/* ── Deterministic Regulatory Checklist ──────────────────────── */}
+              <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <h3 className="text-base font-bold text-white">Deterministic Regulatory Checklist</h3>
+                    <p className="text-xs text-slate-400">
+                      Assembled deterministically from destination country, Incoterms, and SBP Chapter XII rules
+                    </p>
+                  </div>
+
+                  {/* Category Filter Pills */}
+                  <div className="flex flex-wrap gap-1.5 bg-slate-950 p-1.5 rounded-2xl border border-slate-800">
+                    {[
+                      { key: 'ALL', label: 'All Checks' },
+                      { key: 'SBP_FX', label: 'SBP / FX' },
+                      { key: 'DESTINATION_CUSTOMS', label: 'Destination' },
+                      { key: 'INCOTERM_OBLIGATIONS', label: 'Incoterm' },
+                      { key: 'PRODUCT_STANDARD', label: 'Product' },
+                      { key: 'DOCUMENTARY', label: 'Docs' },
+                    ].map((f) => (
+                      <button
+                        key={f.key}
+                        onClick={() => setComplianceFilter(f.key)}
+                        className={`px-3 py-1 rounded-xl text-xs font-semibold transition ${
+                          complianceFilter === f.key
+                            ? 'bg-indigo-600 text-white shadow'
+                            : 'text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        {f.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Checklist items list */}
+                <div className="space-y-3">
+                  {(complianceSummary?.checklist || [])
+                    .filter((c) => complianceFilter === 'ALL' || c.category === complianceFilter)
+                    .map((check) => {
+                      const isMandatory = check.is_mandatory;
+                      const isDone = check.status === 'OBTAINED' || check.status === 'NOT_APPLICABLE';
+                      return (
+                        <div
+                          key={check.id}
+                          className={`p-4 rounded-2xl border transition flex flex-col md:flex-row md:items-center justify-between gap-4 ${
+                            isDone
+                              ? 'bg-slate-950/40 border-slate-800/60'
+                              : isMandatory
+                              ? 'bg-slate-950/80 border-indigo-500/30 ring-1 ring-indigo-500/10'
+                              : 'bg-slate-950/60 border-slate-800'
+                          }`}
+                        >
+                          <div className="space-y-1.5 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span
+                                className={`px-2 py-0.5 rounded text-[10px] font-bold font-mono border ${
+                                  isMandatory
+                                    ? 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                                    : 'bg-slate-800 text-slate-300 border-slate-700'
+                                }`}
+                              >
+                                {isMandatory ? 'MANDATORY' : 'RECOMMENDED'}
+                              </span>
+
+                              <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+                                {check.category.replace(/_/g, ' ')}
+                              </span>
+
+                              {check.regulatory_authority && (
+                                <span className="text-[11px] font-mono text-slate-400">
+                                  Auth: <strong className="text-slate-200">{check.regulatory_authority}</strong>
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="text-sm font-bold text-white">{check.title}</div>
+                            <p className="text-xs text-slate-400">{check.description}</p>
+
+                            <div className="flex flex-wrap items-center gap-4 text-[11px] text-slate-400 pt-1">
+                              {check.legal_reference && (
+                                <div className="font-mono text-indigo-300/90">
+                                  📜 Ref: {check.legal_reference}
+                                </div>
+                              )}
+                              {check.responsible_role && (
+                                <div>
+                                  👤 Role: <span className="text-slate-300 font-semibold">{check.responsible_role}</span>
+                                </div>
+                              )}
+                              {check.evidence_ref && (
+                                <div className="text-emerald-400 font-mono">
+                                  📎 Evidence: {check.evidence_ref}
+                                </div>
+                              )}
+                            </div>
+                            {check.notes && (
+                              <div className="text-xs text-slate-300 bg-slate-900/60 p-2 rounded-xl border border-slate-800/80 italic mt-1">
+                                Notes: "{check.notes}"
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Status and Action */}
+                          <div className="flex items-center gap-3 self-end md:self-center">
+                            <span
+                              className={`px-3 py-1 rounded-xl text-xs font-bold border ${
+                                check.status === 'OBTAINED'
+                                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                  : check.status === 'IN_PROGRESS'
+                                  ? 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                                  : check.status === 'NOT_APPLICABLE'
+                                  ? 'bg-slate-500/10 text-slate-400 border-slate-500/20'
+                                  : check.status === 'REJECTED'
+                                  ? 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                                  : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                              }`}
+                            >
+                              {check.status.replace(/_/g, ' ')}
+                            </span>
+
+                            <button
+                              onClick={() => {
+                                setSelectedCheck(check);
+                                setCheckStatusForm({
+                                  status: check.status,
+                                  notes: check.notes || '',
+                                  evidence_ref: check.evidence_ref || '',
+                                });
+                              }}
+                              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-semibold transition"
+                            >
+                              Update Status
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+
+              {/* ── AI-Assisted HS Code Classifier & Confirmation Gate ─────── */}
+              <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 text-lg">
+                      🏷️
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold text-white">Pakistan Customs Tariff (PCT) HS Code Advisory</h3>
+                      <p className="text-xs text-slate-400">
+                        AI 6-8 digit PCT classification with General Rules of Interpretation (GRI) & Human Gate
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  {(deal.line_items || []).map((item) => {
+                    const suggestion = hsSuggestions[item.id];
+                    const currentHs = item.product?.hs_code;
+                    return (
+                      <div
+                        key={item.id}
+                        className="p-5 bg-slate-950/70 border border-slate-800 rounded-2xl space-y-4"
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-bold text-white">
+                                {item.product?.name || item.description || 'Product Line Item'}
+                              </span>
+                              {item.product?.sku && (
+                                <span className="font-mono text-xs text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">
+                                  {item.product.sku}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-slate-400 mt-1">
+                              Quantity: <strong className="text-slate-200">{formatQty(item.quantity)} {item.product?.unit_of_measure || 'units'}</strong> •{' '}
+                              Catalogue HS: <span className="font-mono text-slate-300 font-bold">{currentHs || 'Unclassified'}</span>
+                            </p>
+                          </div>
+
+                          <button
+                            onClick={() => handleSuggestHS(item)}
+                            disabled={isHsLoading}
+                            className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-purple-600/20 transition flex items-center gap-1.5 disabled:opacity-50 self-start sm:self-auto"
+                          >
+                            <span>⚡</span> AI Suggest HS Code
+                          </button>
+                        </div>
+
+                        {/* HS Suggestion Result Card */}
+                        {suggestion && (
+                          <div className="p-4 bg-slate-900/90 border border-purple-500/30 rounded-2xl space-y-3">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-800">
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono text-base font-extrabold text-purple-400 bg-purple-500/10 px-3 py-1 rounded-xl border border-purple-500/20">
+                                  {suggestion.suggested_code}
+                                </span>
+                                <span className="text-xs font-bold text-white">{suggestion.suggested_heading}</span>
+                              </div>
+                              <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded border ${CONFIDENCE_BADGES(suggestion.confidence_score || 0.85)}`}>
+                                {Math.round((suggestion.confidence_score || 0.85) * 100)}% Confidence
+                              </span>
+                            </div>
+
+                            <div className="text-xs text-slate-300 space-y-1">
+                              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
+                                General Rules of Interpretation (GRI) Reasoning:
+                              </span>
+                              <p className="bg-slate-950/80 p-3 rounded-xl border border-slate-800 text-slate-300 leading-relaxed font-sans">
+                                {suggestion.gri_reasoning}
+                              </p>
+                            </div>
+
+                            <div className="flex items-center justify-between pt-1">
+                              <div className="text-[11px] text-slate-500 font-mono">
+                                ⚖️ Human Confirmation Gate (FR-CMP-04)
+                              </div>
+                              <button
+                                onClick={() => handleConfirmHS(item.id, suggestion.suggested_code, item.product_id)}
+                                className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-emerald-600/20 transition flex items-center gap-1.5"
+                              >
+                                <span>✓</span> Confirm & Sync to Catalogue
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* ── SBP Foreign Exchange & TDAP Advisory Copilot ─────────────── */}
+              <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 text-lg">
+                    🏛️
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-white">SBP FX Regulations & TDAP Advisory Copilot</h3>
+                    <p className="text-xs text-slate-400">
+                      Grounded guidance on SBP Foreign Exchange Manual Chapter XII, Form-E realization, and export circulars
+                    </p>
+                  </div>
+                </div>
+
+                {/* Quick Query Chips */}
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    '120-Day SBP Realization Requirement',
+                    'Electronic Form-E via PSW',
+                    'Advance Payment Form-R Procedure',
+                    'EU GSP+ REX Self-Certification Rules',
+                    'Freight Payment Remittance Limits',
+                  ].map((chip) => (
+                    <button
+                      key={chip}
+                      onClick={() => {
+                        setRegQuery(chip);
+                      }}
+                      className="px-3 py-1.5 rounded-xl text-xs bg-slate-950 hover:bg-slate-800 text-slate-300 border border-slate-800 hover:border-slate-700 transition"
+                    >
+                      💡 {chip}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Query Input Box */}
+                <form onSubmit={handleAskRegulation} className="space-y-3">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={regQuery}
+                      onChange={(e) => setRegQuery(e.target.value)}
+                      placeholder="Ask any SBP Foreign Exchange or Trade Regulation question (e.g. What is the deadline for export proceeds realization?)..."
+                      className="flex-1 px-4 py-3 bg-slate-950 border border-slate-800 rounded-2xl text-slate-100 text-xs focus:outline-none focus:border-indigo-500 font-medium"
+                    />
+                    <button
+                      type="submit"
+                      disabled={isRegLoading || !regQuery.trim()}
+                      className="px-5 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-2xl text-xs font-bold shadow-lg shadow-emerald-600/20 transition flex items-center gap-2 disabled:opacity-50"
+                    >
+                      {isRegLoading ? (
+                        <>
+                          <div className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                          <span>Consulting SBP Rules...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>🔍</span> Consult Regulations
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+
+                {/* Grounded Regulation Response */}
+                {regResponse && (
+                  <div className="p-5 bg-slate-950/80 border border-emerald-500/30 rounded-2xl space-y-4">
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                      <div className="text-xs font-bold text-white flex items-center gap-2">
+                        <span>💬</span> Query: <span className="text-indigo-400 font-mono">"{regResponse.query}"</span>
+                      </div>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold">
+                        Grounded Advisory
+                      </span>
+                    </div>
+
+                    <div className="text-xs text-slate-200 leading-relaxed whitespace-pre-line font-sans">
+                      {regResponse.answer}
+                    </div>
+
+                    {regResponse.citations?.length > 0 && (
+                      <div className="pt-2 border-t border-slate-800 space-y-1.5">
+                        <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                          Official Regulatory Citations:
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {regResponse.citations.map((cite, i) => (
+                            <span
+                              key={i}
+                              className="px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20"
+                            >
+                              📜 {cite}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="p-3 bg-slate-900/60 rounded-xl border border-slate-800/80 text-[11px] text-slate-400 italic">
+                      ⚠️ {regResponse.disclaimer}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ── TAB 5: Audit Trail ────────────────────────────────────── */}
           {activeTab === 'audit' && (
             <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 space-y-4">
               <h2 className="text-base font-bold text-white">Immutable Audit Trail</h2>
@@ -1463,6 +2039,77 @@ export default function Deals() {
                 />
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: Update Compliance Check Status ────────────────── */}
+      {selectedCheck && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div>
+                <h3 className="text-base font-bold text-white">Update Compliance Check</h3>
+                <p className="text-xs text-slate-400 font-mono">{selectedCheck.title}</p>
+              </div>
+              <button onClick={() => setSelectedCheck(null)} className="text-slate-400 hover:text-white">✕</button>
+            </div>
+
+            <form onSubmit={handleUpdateCheck} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 mb-1">Status</label>
+                <select
+                  value={checkStatusForm.status}
+                  onChange={(e) => setCheckStatusForm({ ...checkStatusForm, status: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 text-xs focus:outline-none focus:border-indigo-500"
+                >
+                  <option value="PENDING">PENDING (Not Started)</option>
+                  <option value="IN_PROGRESS">IN_PROGRESS (Under Review / Processing)</option>
+                  <option value="OBTAINED">OBTAINED (Cleared / Certified)</option>
+                  <option value="NOT_APPLICABLE">NOT_APPLICABLE (Exempt / Waived)</option>
+                  <option value="REJECTED">REJECTED (Non-compliant / Discrepant)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 mb-1">Evidence / Certificate / Filing Reference</label>
+                <input
+                  type="text"
+                  value={checkStatusForm.evidence_ref}
+                  onChange={(e) => setCheckStatusForm({ ...checkStatusForm, evidence_ref: e.target.value })}
+                  placeholder="e.g. EFE-2024-9988-PSW, REX-PK-123456, Marine Policy #POL-992"
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 text-xs focus:outline-none focus:border-indigo-500 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 mb-1">Compliance Notes / Auditor Remarks</label>
+                <textarea
+                  rows="3"
+                  value={checkStatusForm.notes}
+                  onChange={(e) => setCheckStatusForm({ ...checkStatusForm, notes: e.target.value })}
+                  placeholder="e.g. Verified against PSW portal and Authorized Dealer confirmed e-Form E submission."
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 text-xs focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedCheck(null)}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isCheckUpdating}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-indigo-600/20 transition disabled:opacity-50"
+                >
+                  {isCheckUpdating ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -17,6 +17,7 @@ from app.api.deals import router as deals_router
 from app.api.inquiries import router as inquiries_router
 from app.api.extraction import router as extraction_router
 from app.api.documents import router as documents_router
+from app.api.compliance import router as compliance_router
 
 api_router = APIRouter()
 
@@ -45,3 +46,6 @@ api_router.include_router(extraction_router)
 
 # ── Phase 10 & 11 (Export Documents & Consistency Audit) ─────
 api_router.include_router(documents_router)
+
+# ── Phase 12 (Compliance Engine, SBP Regulations & HS Advisor)
+api_router.include_router(compliance_router)

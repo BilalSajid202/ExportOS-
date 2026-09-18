@@ -33,6 +33,13 @@ from app.models.documents import (
     DocumentType,
     DocumentStatus,
 )
+from app.models.compliance import (
+    ComplianceCheck,
+    ComplianceCategory,
+    ComplianceStatus,
+    HSCodeClassification,
+    HSClassificationStatus,
+)
 
 __all__ = [
     "Base",
@@ -65,4 +72,9 @@ __all__ = [
     "GeneratedDocument",
     "DocumentType",
     "DocumentStatus",
+    "ComplianceCheck",
+    "ComplianceCategory",
+    "ComplianceStatus",
+    "HSCodeClassification",
+    "HSClassificationStatus",
 ]
