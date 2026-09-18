@@ -109,13 +109,13 @@ class InventoryItem(BaseModel):
         "InventoryTransaction",
         back_populates="inventory_item",
         cascade="all, delete-orphan",
-        lazy="selectin",
+        lazy="noload",
     )
     reservations: Mapped[list["InventoryReservation"]] = relationship(
         "InventoryReservation",
         back_populates="inventory_item",
         cascade="all, delete-orphan",
-        lazy="selectin",
+        lazy="noload",
     )
 
     @property

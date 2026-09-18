@@ -114,7 +114,7 @@ class InventoryTransactionResponse(BaseModel):
     transaction_type: InventoryTransactionType
     quantity: Decimal
     reference_type: Optional[str] = None
-    reference_id: Optional[str] = None
+    reference_id: Optional[uuid.UUID] = None
     notes: Optional[str] = None
     created_by: Optional[uuid.UUID] = None
     created_at: datetime

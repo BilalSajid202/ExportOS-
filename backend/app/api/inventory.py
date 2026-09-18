@@ -253,7 +253,7 @@ async def get_product_inventory(
             )
         # Auto-create empty inventory record if missing
         item = await inventory_service.get_or_create_inventory_item(
-            db, current_user.organisation_id, product
+            db, product
         )
         await db.commit()
 

@@ -82,6 +82,40 @@ async def get_product_for_org(
     return result.scalar_one_or_none()
 
 
+async def get_inventory_item(
+    db: AsyncSession,
+    organisation_id: uuid.UUID,
+    product_id: uuid.UUID,
+) -> Optional[InventoryItem]:
+    """Fetch single inventory item for product and org, with product relation loaded."""
+    result = await db.execute(
+        select(InventoryItem)
+        .options(selectinload(InventoryItem.product))
+        .where(
+            InventoryItem.product_id == product_id,
+            InventoryItem.organisation_id == organisation_id,
+        )
+    )
+    return result.scalar_one_or_none()
+
+
+async def get_inventory_transactions(
+    db: AsyncSession,
+    organisation_id: uuid.UUID,
+    inventory_item_id: uuid.UUID,
+) -> list[InventoryTransaction]:
+    """Fetch all stock movement transactions for an inventory item."""
+    result = await db.execute(
+        select(InventoryTransaction)
+        .where(
+            InventoryTransaction.inventory_item_id == inventory_item_id,
+            InventoryTransaction.organisation_id == organisation_id,
+        )
+        .order_by(InventoryTransaction.created_at.desc())
+    )
+    return list(result.scalars().all())
+
+
 async def get_or_create_inventory_item(
     db: AsyncSession,
     product: Product,

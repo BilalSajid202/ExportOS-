@@ -54,3 +54,28 @@ def test_exact_match():
     assert available == Decimal("2500")
     assert shortfall == Decimal("0")
     assert status == AvailabilityStatus.AVAILABLE
+
+
+def test_inventory_transaction_response_with_uuid_reference_id():
+    import uuid
+    from datetime import datetime, timezone
+    from app.models.inventory import InventoryTransactionType
+    from app.schemas.inventory import InventoryTransactionResponse
+
+    tx_resp = InventoryTransactionResponse(
+        id=uuid.uuid4(),
+        organisation_id=uuid.uuid4(),
+        inventory_item_id=uuid.uuid4(),
+        transaction_type=InventoryTransactionType.RESERVATION,
+        quantity=Decimal("50"),
+        reference_type="RESERVATION",
+        reference_id=uuid.uuid4(),
+        notes="Test reservation",
+        created_by=uuid.uuid4(),
+        created_at=datetime.now(timezone.utc),
+        sku="TEST-SKU",
+        product_name="Test Product",
+    )
+    assert tx_resp.reference_id is not None
+    assert isinstance(tx_resp.reference_id, uuid.UUID)
+

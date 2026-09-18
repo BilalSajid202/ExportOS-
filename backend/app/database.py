@@ -24,7 +24,7 @@ settings = get_settings()
 # ── Async Engine ──────────────────────────────────────────────
 engine = create_async_engine(
     settings.DATABASE_URL,
-    echo=settings.is_development,  # Log SQL in dev
+    echo=False,
     pool_size=5,
     max_overflow=10,
     pool_pre_ping=True,  # Verify connections before use

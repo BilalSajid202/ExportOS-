@@ -231,173 +231,169 @@ export default function Inventory() {
     }
   };
 
-  // ── Product detail view ────────────────────────────────────
-  if (productId) {
-    return (
-      <div className="space-y-6 max-w-4xl">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate('/inventory')}
-            className="text-slate-400 hover:text-white text-sm"
-          >
-            ← Back to Inventory
-          </button>
-        </div>
-
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-white tracking-tight">
-              {detail?.product_name || 'Product Inventory'}
-            </h1>
-            <p className="text-sm text-slate-400 mt-1 font-mono">{detail?.sku}</p>
-          </div>
-          {canAdjust && (
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => {
-                  setSelectedItem(detail);
-                  setEditForm({
-                    reorder_level: String(detail?.reorder_level ?? 0),
-                    unit_of_measure: detail?.unit_of_measure ?? 'PCS',
-                  });
-                  setModalError('');
-                  setEditModalOpen(true);
-                }}
-                className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold rounded-xl transition"
-              >
-                ✏️ Edit Thresholds
-              </button>
-              <button
-                onClick={() => {
-                  setAdjustForm({
-                    product_id: productId,
-                    quantity_delta: '',
-                    notes: '',
-                    reorder_level: detail?.reorder_level ?? '',
-                  });
-                  setModalError('');
-                  setAdjustOpen(true);
-                }}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-indigo-600/20 transition"
-              >
-                ± Adjust Stock
-              </button>
-            </div>
-          )}
-        </div>
-
-        {error && (
-          <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-400 text-sm">
-            {error}
-          </div>
-        )}
-        {actionSuccess && (
-          <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-400 text-sm">
-            {actionSuccess}
-          </div>
-        )}
-
-        {/* Stock Numbers Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="p-5 bg-slate-900/60 border border-slate-800/80 rounded-2xl">
-            <div className="text-xs font-medium text-slate-400 uppercase tracking-wider">Current Stock</div>
-            <div className="text-3xl font-bold text-white font-mono mt-1">
-              {formatQty(detail?.current_quantity)}
-            </div>
-            <div className="text-xs text-slate-500 mt-1">{detail?.unit_of_measure}</div>
-          </div>
-          <div className="p-5 bg-slate-900/60 border border-slate-800/80 rounded-2xl">
-            <div className="text-xs font-medium text-slate-400 uppercase tracking-wider">Reserved Stock</div>
-            <div className="text-3xl font-bold text-amber-400 font-mono mt-1">
-              {formatQty(detail?.reserved_quantity)}
-            </div>
-            <div className="text-xs text-slate-500 mt-1">Committed to active deals</div>
-          </div>
-          <div className="p-5 bg-slate-900/60 border border-slate-800/80 rounded-2xl">
-            <div className="text-xs font-medium text-slate-400 uppercase tracking-wider">Available Stock</div>
-            <div className="text-3xl font-bold text-emerald-400 font-mono mt-1">
-              {formatQty(detail?.available_quantity)}
-            </div>
-            <div className="text-xs text-slate-500 mt-1">Current - Reserved</div>
-          </div>
-        </div>
-
-        {/* Availability Calculator */}
-        <div className="p-6 bg-slate-900/60 border border-slate-800/80 rounded-2xl space-y-4">
-          <h2 className="text-base font-bold text-white">Live Stock Availability Calculator</h2>
-          <div className="flex gap-3">
-            <input
-              type="number"
-              value={checkQty}
-              onChange={(e) => setCheckQty(e.target.value)}
-              placeholder="Requested qty"
-              className="px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 text-xs w-48 focus:outline-none focus:border-indigo-500"
-            />
-            <button
-              onClick={runAvailabilityCheck}
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold transition"
-            >
-              Check Availability
-            </button>
-          </div>
-          {availability && (
-            <div className="p-4 bg-slate-950/70 border border-slate-800 rounded-xl space-y-2">
-              <div className="flex items-center gap-2">
-                <span className={`text-xs px-2.5 py-0.5 rounded-full font-bold border ${STATUS_STYLES[availability.status]}`}>
-                  {availability.status.replace(/_/g, ' ')}
-                </span>
-                <span className="text-xs text-slate-300 font-medium">{availability.message}</span>
-              </div>
-              {availability.shortfall > 0 && (
-                <div className="text-xs text-rose-400 font-semibold">
-                  ⚠️ Shortfall: {formatQty(availability.shortfall)} {availability.unit_of_measure} needed.
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Transactions Ledger */}
-        <div className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-6 space-y-4">
-          <h2 className="text-base font-bold text-white">Stock Movement Ledger</h2>
-          {transactions.length === 0 ? (
-            <div className="text-center py-6 text-slate-500 text-xs">No transactions recorded yet.</div>
-          ) : (
-            <div className="divide-y divide-slate-800">
-              {transactions.map((t) => (
-                <div key={t.id} className="py-3 flex items-center justify-between text-xs">
-                  <div>
-                    <span className="font-bold text-indigo-400 font-mono mr-2">
-                      {t.transaction_type}
-                    </span>
-                    <span className="text-slate-300">{t.notes || 'Stock adjustment'}</span>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-mono font-bold text-white">
-                      {t.quantity > 0 ? `+${formatQty(t.quantity)}` : formatQty(t.quantity)} {t.sku}
-                    </div>
-                    <div className="text-[10px] text-slate-500">
-                      {new Date(t.created_at).toLocaleString()}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  // ── Main Dashboard View ────────────────────────────────────
   const uncataloguedProducts = products.filter(
     (p) => !items.some((i) => i.product_id === p.id)
   );
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      {productId ? (
+        <div className="space-y-6 max-w-4xl">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate('/inventory')}
+              className="text-slate-400 hover:text-white text-sm"
+            >
+              ← Back to Inventory
+            </button>
+          </div>
+
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-bold text-white tracking-tight">
+                {detail?.product_name || 'Product Inventory'}
+              </h1>
+              <p className="text-sm text-slate-400 mt-1 font-mono">{detail?.sku}</p>
+            </div>
+            {canAdjust && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    setSelectedItem(detail);
+                    setEditForm({
+                      reorder_level: String(detail?.reorder_level ?? 0),
+                      unit_of_measure: detail?.unit_of_measure ?? 'PCS',
+                    });
+                    setModalError('');
+                    setEditModalOpen(true);
+                  }}
+                  className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold rounded-xl transition"
+                >
+                  ✏️ Edit Thresholds
+                </button>
+                <button
+                  onClick={() => {
+                    setAdjustForm({
+                      product_id: productId,
+                      quantity_delta: '',
+                      notes: '',
+                      reorder_level: detail?.reorder_level ?? '',
+                    });
+                    setModalError('');
+                    setAdjustOpen(true);
+                  }}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-indigo-600/20 transition"
+                >
+                  ± Adjust Stock
+                </button>
+              </div>
+            )}
+          </div>
+
+          {error && (
+            <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-400 text-sm">
+              {error}
+            </div>
+          )}
+          {actionSuccess && (
+            <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-400 text-sm">
+              {actionSuccess}
+            </div>
+          )}
+
+          {/* Stock Numbers Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="p-5 bg-slate-900/60 border border-slate-800/80 rounded-2xl">
+              <div className="text-xs font-medium text-slate-400 uppercase tracking-wider">Current Stock</div>
+              <div className="text-3xl font-bold text-white font-mono mt-1">
+                {formatQty(detail?.current_quantity)}
+              </div>
+              <div className="text-xs text-slate-500 mt-1">{detail?.unit_of_measure}</div>
+            </div>
+            <div className="p-5 bg-slate-900/60 border border-slate-800/80 rounded-2xl">
+              <div className="text-xs font-medium text-slate-400 uppercase tracking-wider">Reserved Stock</div>
+              <div className="text-3xl font-bold text-amber-400 font-mono mt-1">
+                {formatQty(detail?.reserved_quantity)}
+              </div>
+              <div className="text-xs text-slate-500 mt-1">Committed to active deals</div>
+            </div>
+            <div className="p-5 bg-slate-900/60 border border-slate-800/80 rounded-2xl">
+              <div className="text-xs font-medium text-slate-400 uppercase tracking-wider">Available Stock</div>
+              <div className="text-3xl font-bold text-emerald-400 font-mono mt-1">
+                {formatQty(detail?.available_quantity)}
+              </div>
+              <div className="text-xs text-slate-500 mt-1">Current - Reserved</div>
+            </div>
+          </div>
+
+          {/* Availability Calculator */}
+          <div className="p-6 bg-slate-900/60 border border-slate-800/80 rounded-2xl space-y-4">
+            <h2 className="text-base font-bold text-white">Live Stock Availability Calculator</h2>
+            <div className="flex gap-3">
+              <input
+                type="number"
+                value={checkQty}
+                onChange={(e) => setCheckQty(e.target.value)}
+                placeholder="Requested qty"
+                className="px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 text-xs w-48 focus:outline-none focus:border-indigo-500"
+              />
+              <button
+                onClick={runAvailabilityCheck}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold transition"
+              >
+                Check Availability
+              </button>
+            </div>
+            {availability && (
+              <div className="p-4 bg-slate-950/70 border border-slate-800 rounded-xl space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs px-2.5 py-0.5 rounded-full font-bold border ${STATUS_STYLES[availability.status]}`}>
+                    {availability.status.replace(/_/g, ' ')}
+                  </span>
+                  <span className="text-xs text-slate-300 font-medium">{availability.message}</span>
+                </div>
+                {availability.shortfall > 0 && (
+                  <div className="text-xs text-rose-400 font-semibold">
+                    ⚠️ Shortfall: {formatQty(availability.shortfall)} {availability.unit_of_measure} needed.
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Transactions Ledger */}
+          <div className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-6 space-y-4">
+            <h2 className="text-base font-bold text-white">Stock Movement Ledger</h2>
+            {transactions.length === 0 ? (
+              <div className="text-center py-6 text-slate-500 text-xs">No transactions recorded yet.</div>
+            ) : (
+              <div className="divide-y divide-slate-800">
+                {transactions.map((t) => (
+                  <div key={t.id} className="py-3 flex items-center justify-between text-xs">
+                    <div>
+                      <span className="font-bold text-indigo-400 font-mono mr-2">
+                        {t.transaction_type}
+                      </span>
+                      <span className="text-slate-300">{t.notes || 'Stock adjustment'}</span>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-mono font-bold text-white">
+                        {t.quantity > 0 ? `+${formatQty(t.quantity)}` : formatQty(t.quantity)} {t.sku}
+                      </div>
+                      <div className="text-[10px] text-slate-500">
+                        {new Date(t.created_at).toLocaleString()}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white tracking-tight">Warehouse & Inventory</h1>
           <p className="text-sm text-slate-400 mt-1">
@@ -681,6 +677,8 @@ export default function Inventory() {
           )}
         </div>
       )}
+    </>
+  )}
 
       {/* ── Modal: Add to Inventory ─────────────────────────────────── */}
       {addModalOpen && (
