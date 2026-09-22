@@ -1,5 +1,5 @@
 """
-ExportOS — HS Code AI Classification & Advisor Service
+Tradeloop — HS Code AI Classification & Advisor Service
 
 Provides 6-digit WCO / 8-digit Pakistan Customs Tariff (PCT) 2024-25
 classification suggestions with confidence, General Rules for the
@@ -30,7 +30,7 @@ from app.models.deal import Deal, DealLineItem
 from app.models.product import Product
 from app.models.user import User
 
-logger = logging.getLogger("exportos.hs_advisor")
+logger = logging.getLogger("tradeloop.hs_advisor")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Pakistan Customs Tariff (PCT) 2024-25 Master Taxonomy Database

@@ -1,5 +1,5 @@
 """
-ExportOS — Pydantic Schemas
+Tradeloop — Pydantic Schemas
 """
 
 from app.schemas.health import HealthResponse

@@ -1,5 +1,5 @@
 """
-ExportOS — Product Catalogue Model
+Tradeloop — Product Catalogue Model
 
 Represents a sellable catalogue item (SKU) belonging to an Organisation.
 Inventory items reference products via product_id.

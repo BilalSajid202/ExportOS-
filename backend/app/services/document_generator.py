@@ -1,5 +1,5 @@
 """
-ExportOS — Multi-Document Generation Engine (Phase 10)
+Tradeloop — Multi-Document Generation Engine (Phase 10)
 
 Generates standardized, authoritative export documents from a single deal revision:
 1. Proforma Invoice (PI)
@@ -390,7 +390,7 @@ def render_document_html(doc: GeneratedDocument) -> str:
   <div class="grid-2">
     <div class="card">
       <div class="card-title">Exporter / Shipper</div>
-      <strong>{data.get('exporter', {}).get('name', 'ExportOS Exporter')}</strong><br>
+      <strong>{data.get('exporter', {}).get('name', 'Tradeloop Exporter')}</strong><br>
       {data.get('exporter', {}).get('address', 'Pakistan')}<br>
       NTN: {data.get('exporter', {}).get('ntn', '7294819-3')} | STRN: {data.get('exporter', {}).get('strn', '3277876123456')}
     </div>
@@ -455,7 +455,7 @@ def render_document_html(doc: GeneratedDocument) -> str:
     html += f"""
     <div class="footer">
       <div>
-        <strong>ExportOS Cryptographic Stamp:</strong>
+        <strong>Tradeloop Cryptographic Stamp:</strong>
         <div class="hash">SHA-256: {doc.sha256_hash}</div>
       </div>
       <div style="text-align: right;">

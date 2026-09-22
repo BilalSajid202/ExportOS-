@@ -1,5 +1,5 @@
 """
-ExportOS — FastAPI Application Factory
+Tradeloop — FastAPI Application Factory
 
 Creates and configures the FastAPI application with:
   - CORS middleware
@@ -24,7 +24,7 @@ logging.basicConfig(
     format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
 )
-logger = logging.getLogger("exportos")
+logger = logging.getLogger("tradeloop")
 
 
 # ── Lifespan ──────────────────────────────────────────────────

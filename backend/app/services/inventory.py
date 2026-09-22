@@ -1,5 +1,5 @@
 """
-ExportOS — Inventory Service
+Tradeloop — Inventory Service
 
 All quantity math is deterministic application code (never LLM).
 available = current - reserved

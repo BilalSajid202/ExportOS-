@@ -1,5 +1,5 @@
 """
-ExportOS — SBP Foreign Exchange Regulations & Trade Compliance Advisory
+Tradeloop — SBP Foreign Exchange Regulations & Trade Compliance Advisory
 
 Knowledge base & advisory engine grounded in the State Bank of Pakistan (SBP)
 Foreign Exchange Manual Chapter XII, FE Circulars, Pakistan Single Window (PSW)
@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 from typing import List, Optional
 
-logger = logging.getLogger("exportos.sbp_regulations")
+logger = logging.getLogger("tradeloop.sbp_regulations")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Grounded Corpus of Authoritative Pakistani Trade Regulations
@@ -166,7 +166,7 @@ def query_sbp_regulations(
         "effective_date": effective_date,
         "last_verified": "September 2026",
         "disclaimer": (
-            "Informational advisory only. ExportOS provides regulatory guidance based on published SBP Foreign Exchange Manual "
+            "Informational advisory only. Tradeloop provides regulatory guidance based on published SBP Foreign Exchange Manual "
             "and Pakistan Customs trade notices, but does not constitute official legal or customs clearance advice."
         ),
     }

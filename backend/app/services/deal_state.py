@@ -1,5 +1,5 @@
 """
-ExportOS — Deal State Machine & Audit Trail Service (Phase 4)
+Tradeloop — Deal State Machine & Audit Trail Service (Phase 4)
 
 Enforces strict legal state transitions and records immutable audit entries.
 """

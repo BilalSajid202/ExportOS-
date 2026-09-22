@@ -1,7 +1,7 @@
 """
-ExportOS — Backend Server Runner
+Tradeloop — Backend Server Runner
 
-Run this script to start the ExportOS FastAPI backend server:
+Run this script to start the Tradeloop FastAPI backend server:
     python run.py
 """
 
@@ -16,7 +16,7 @@ if current_dir not in sys.path:
 
 if __name__ == "__main__":
     print("==================================================")
-    print("  Starting ExportOS Backend Server...")
+    print("  Starting Tradeloop Backend Server...")
     print("  Local API:   http://localhost:8000")
     print("  API Docs:    http://localhost:8000/api/docs")
     print("  Healthcheck: http://localhost:8000/api/health")

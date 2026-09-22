@@ -1,5 +1,5 @@
 """
-ExportOS — Costing & Quotation Schemas (Phase 8)
+Tradeloop — Costing & Quotation Schemas (Phase 8)
 """
 
 import uuid

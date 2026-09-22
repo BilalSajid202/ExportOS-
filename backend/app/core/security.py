@@ -1,5 +1,5 @@
 """
-ExportOS — Security Utilities
+Tradeloop — Security Utilities
 
 Handles password hashing (bcrypt) and JWT access token creation/verification.
 """

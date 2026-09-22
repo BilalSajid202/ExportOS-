@@ -1,5 +1,5 @@
 """
-ExportOS — AI Extraction & Human Review API
+Tradeloop — AI Extraction & Human Review API
 
 Endpoints:
   - POST /api/deals/{deal_id}/extract          - Run AI extraction on deal inquiry
@@ -114,7 +114,7 @@ async def run_deal_extraction(
         extraction_record.extracted_data = extracted_data
         extraction_record.artifact_id = artifact_id
         extraction_record.status = ExtractionStatus.PENDING_REVIEW
-        extraction_record.model_name = "exportos-ai-extractor-v1"
+        extraction_record.model_name = "tradeloop-ai-extractor-v1"
         extraction_record.model_version = "1.1"
         extraction_record.reviewed_by = None
         extraction_record.reviewed_at = None
@@ -123,7 +123,7 @@ async def run_deal_extraction(
             organisation_id=current_user.organisation_id,
             deal_id=deal.id,
             artifact_id=artifact_id,
-            model_name="exportos-ai-extractor-v1",
+            model_name="tradeloop-ai-extractor-v1",
             model_version="1.1",
             extracted_data=extracted_data,
             status=ExtractionStatus.PENDING_REVIEW,

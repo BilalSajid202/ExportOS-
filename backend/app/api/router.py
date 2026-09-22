@@ -1,5 +1,5 @@
 """
-ExportOS — Central API Router
+Tradeloop — Central API Router
 
 Aggregates all sub-routers into a single router mounted at /api in main.py.
 Add new routers here as phases are implemented.

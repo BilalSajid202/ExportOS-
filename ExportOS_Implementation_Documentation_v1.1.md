@@ -1,21 +1,21 @@
-# ExportOS — AI Export Operations Copilot
+# Tradeloop — AI Export Operations Copilot
 ## Updated Implementation Documentation
 **Version:** 1.1 Draft  
 **Date:** 16 September 2026
 
-> This document updates the original ExportOS SRS with the requested **inventory-aware workflow** and converts the project requirements into an implementation roadmap.
+> This document updates the original Tradeloop SRS with the requested **inventory-aware workflow** and converts the project requirements into an implementation roadmap.
 
 ---
 
 # 1. Product Overview
 
-ExportOS is an AI-assisted export operations platform for small and medium exporters in Pakistan.
+Tradeloop is an AI-assisted export operations platform for small and medium exporters in Pakistan.
 
 The platform keeps one authoritative deal record from:
 
 **Buyer Inquiry → Inventory Check → Quotation → Order Confirmation → Document Preparation → Compliance Checks → Shipment → Payment → Closure**
 
-The original SRS describes the problem as fragmented work across email, WhatsApp, quotation spreadsheets, invoice templates and manual checklists. ExportOS centralizes that workflow and uses AI for interpretation while keeping financial calculations, validation and approvals deterministic. 
+The original SRS describes the problem as fragmented work across email, WhatsApp, quotation spreadsheets, invoice templates and manual checklists. Tradeloop centralizes that workflow and uses AI for interpretation while keeping financial calculations, validation and approvals deterministic. 
 
 ---
 
@@ -23,7 +23,7 @@ The original SRS describes the problem as fragmented work across email, WhatsApp
 
 ## 2.1 Goal
 
-ExportOS should connect each organisation's product catalogue with its inventory so that employees can immediately determine whether the requested quantity is available.
+Tradeloop should connect each organisation's product catalogue with its inventory so that employees can immediately determine whether the requested quantity is available.
 
 Example:
 
@@ -108,7 +108,7 @@ Example:
 
 1. Buyer requests 2,000 units.
 2. Employee confirms the deal.
-3. ExportOS reserves 2,000 units.
+3. Tradeloop reserves 2,000 units.
 4. Available inventory decreases accordingly.
 5. When the shipment is completed, reserved stock is converted into shipped/reduced stock.
 
@@ -160,7 +160,7 @@ A buyer sends an email:
 
 > "Please quote 5,000 size-5 footballs, CIF Hamburg, delivery 15 November."
 
-ExportOS performs:
+Tradeloop performs:
 
 ### Step 1 — Extract
 
@@ -207,7 +207,7 @@ Only after approval can the workflow continue.
 
 ### Step 5 — Reservation
 
-If the company decides to fulfill 3,200 units from current inventory, ExportOS reserves those units.
+If the company decides to fulfill 3,200 units from current inventory, Tradeloop reserves those units.
 
 ### Step 6 — Documents
 
@@ -1006,7 +1006,7 @@ Buyer WhatsApp
       ↓
 WhatsApp Business Platform
       ↓
-ExportOS ingestion
+Tradeloop ingestion
       ↓
 AI extraction
       ↓
@@ -1285,7 +1285,7 @@ For your final demonstration, use one realistic Pakistani exporter scenario.
 
 > "Please quote 5,000 size-5 footballs, CIF Hamburg."
 
-### ExportOS
+### Tradeloop
 
 ```text
 1. Reads inquiry
@@ -1306,7 +1306,7 @@ For your final demonstration, use one realistic Pakistani exporter scenario.
 
 This gives the project a clear story:
 
-> **Instead of employees copying information between WhatsApp, email, Excel and documents, ExportOS turns an incoming buyer request into a controlled, traceable export workflow while connecting the order to real inventory.**
+> **Instead of employees copying information between WhatsApp, email, Excel and documents, Tradeloop turns an incoming buyer request into a controlled, traceable export workflow while connecting the order to real inventory.**
 
 ---
 
@@ -1314,7 +1314,7 @@ This gives the project a clear story:
 
 The following section preserves the original SRS content as the baseline for this update.
 
-ExportOS
+Tradeloop
 
 AI Export Operations Copilot
 
@@ -1332,7 +1332,7 @@ Table of contents
 
 1.1 Purpose
 
-This document specifies the functional and non-functional requirements for ExportOS, an AI-assisted operations platform for small and medium export businesses. It defines what the system must do, the boundaries of its automation, the data it holds, and the criteria by which each release is judged complete.
+This document specifies the functional and non-functional requirements for Tradeloop, an AI-assisted operations platform for small and medium export businesses. It defines what the system must do, the boundaries of its automation, the data it holds, and the criteria by which each release is judged complete.
 
 The specification is written to be implementable. Requirements are individually identified, prioritised, and traceable to the release milestones in Section 9.
 
@@ -1360,19 +1360,19 @@ Pilot customers — Sections 2 and 9 describe capability and delivery sequence i
 
 1.4 Product scope
 
-ExportOS is the business-side intelligence layer that sits before government trade systems. It takes an export deal from the moment a buyer inquiry arrives through quotation, order confirmation, document preparation, compliance checking, shipment, and payment reconciliation.
+Tradeloop is the business-side intelligence layer that sits before government trade systems. It takes an export deal from the moment a buyer inquiry arrives through quotation, order confirmation, document preparation, compliance checking, shipment, and payment reconciliation.
 
 The problem it addresses is fragmentation. A typical SME exporter handles a single order across an email inbox, several WhatsApp threads, a quotation spreadsheet, a separate invoice template, a packing list retyped from that invoice, and a manual checklist of required documents. Each retyping is an opportunity for the mismatch that causes consignment rejection, demurrage, or payment delay under a letter of credit.
 
-ExportOS eliminates the retyping by holding one authoritative deal record from which every downstream artifact is generated, and applies AI to the parts that are genuinely interpretive: reading unstructured buyer messages, suggesting classification codes, and answering questions about documentary requirements.
+Tradeloop eliminates the retyping by holding one authoritative deal record from which every downstream artifact is generated, and applies AI to the parts that are genuinely interpretive: reading unstructured buyer messages, suggesting classification codes, and answering questions about documentary requirements.
 
 1.5 Out of scope
 
-Filing declarations directly with customs authorities or with the Pakistan Single Window. ExportOS prepares and validates; it does not submit.
+Filing declarations directly with customs authorities or with the Pakistan Single Window. Tradeloop prepares and validates; it does not submit.
 
 Acting as a customs broker, freight forwarder, or provider of legal or regulatory advice.
 
-Full double-entry accounting, payroll, or tax filing. ExportOS tracks receivables against deals and exports data to accounting systems.
+Full double-entry accounting, payroll, or tax filing. Tradeloop tracks receivables against deals and exports data to accounting systems.
 
 Shop-floor production planning, machine scheduling, or bill-of-materials explosion.
 
@@ -1396,9 +1396,9 @@ Pakistan Single Window published documentation on trade digitisation.
 
 2.1 Product perspective
 
-ExportOS is a new, self-contained, multi-tenant web application. It is not a replacement for or competitor to national trade systems. It occupies the layer above them: the commercial and documentary work an exporter performs before any government submission is possible.
+Tradeloop is a new, self-contained, multi-tenant web application. It is not a replacement for or competitor to national trade systems. It occupies the layer above them: the commercial and documentary work an exporter performs before any government submission is possible.
 
-The system is positioned to become the exporter's system of record for deals. This distinction matters architecturally. If the authoritative quantities, prices, and terms continue to live in the exporter's spreadsheets, ExportOS can only ever be an advisory tool and its consistency guarantees are void. Every requirement in this document assumes ExportOS holds the deal.
+The system is positioned to become the exporter's system of record for deals. This distinction matters architecturally. If the authoritative quantities, prices, and terms continue to live in the exporter's spreadsheets, Tradeloop can only ever be an advisory tool and its consistency guarantees are void. Every requirement in this document assumes Tradeloop holds the deal.
 
 2.2 Product functions
 
@@ -1752,7 +1752,7 @@ Each functional requirement group maps to the milestone in which it is delivered
 
 Term | Definition
 
-Deal | The central record in ExportOS. Represents one commercial opportunity from inquiry through to closure. All documents and events attach to it.
+Deal | The central record in Tradeloop. Represents one commercial opportunity from inquiry through to closure. All documents and events attach to it.
 
 Incoterm | Standardised trade term (EXW, FOB, CFR, CIF, DAP, DDP and others) defining where cost and risk transfer from seller to buyer.
 
@@ -2288,9 +2288,9 @@ DDP | Yes | Yes | Yes | Optional | Yes
 
 Document | Typically required when | Prepared by
 
-Commercial invoice | Always | Exporter (generated by ExportOS)
+Commercial invoice | Always | Exporter (generated by Tradeloop)
 
-Packing list | Always | Exporter (generated by ExportOS)
+Packing list | Always | Exporter (generated by Tradeloop)
 
 Bill of lading or air waybill | Always | Carrier or forwarder
 
@@ -2304,7 +2304,7 @@ Phytosanitary or health certificate | Agricultural, food, or animal products | R
 
 Beneficiary declaration | Letter of credit terms require it | Exporter
 
-Shipping instruction | Always, to the forwarder | Exporter (generated by ExportOS)
+Shipping instruction | Always, to the forwarder | Exporter (generated by Tradeloop)
 
 Export declaration | Always, filed through national systems | Exporter or clearing agent
 

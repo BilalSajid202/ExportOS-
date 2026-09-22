@@ -1,5 +1,5 @@
 """
-ExportOS — Costing & Quotation Models (Phase 8)
+Tradeloop — Costing & Quotation Models (Phase 8)
 
 Entities:
 - CostComponent: granular cost items (packaging, freight, insurance, etc.) associated with a deal.

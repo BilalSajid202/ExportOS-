@@ -1,5 +1,5 @@
 """
-ExportOS — Executive Analytics & Profitability Schemas (Phase 15)
+Tradeloop — Executive Analytics & Profitability Schemas (Phase 15)
 """
 
 from datetime import datetime

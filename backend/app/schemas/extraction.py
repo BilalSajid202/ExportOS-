@@ -1,5 +1,5 @@
 """
-ExportOS — AI Extraction Pydantic Schemas
+Tradeloop — AI Extraction Pydantic Schemas
 """
 
 import uuid

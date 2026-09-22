@@ -1,5 +1,5 @@
 """
-ExportOS — Compliance Rule Engine
+Tradeloop — Compliance Rule Engine
 
 Deterministic rules engine assembling required document checklists and
 regulatory obligations based on destination country, Incoterms 2020,

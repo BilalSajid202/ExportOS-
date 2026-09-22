@@ -1,5 +1,5 @@
 """
-ExportOS — Health Check Endpoint
+Tradeloop — Health Check Endpoint
 
 GET /api/health
 Returns the application and database status.

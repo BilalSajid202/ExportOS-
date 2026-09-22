@@ -1,5 +1,5 @@
 """
-ExportOS — User Model & Role Enumeration
+Tradeloop — User Model & Role Enumeration
 
 Represents authenticated users in an Organisation.
 Enforces Role-Based Access Control (RBAC) and tenant membership.
@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 
 class UserRole(str, enum.Enum):
     """
-    Role definitions from ExportOS SRS.
+    Role definitions from Tradeloop SRS.
     """
     ADMIN = "ADMIN"
     EXPORT_MANAGER = "EXPORT_MANAGER"

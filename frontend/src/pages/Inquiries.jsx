@@ -1,63 +1,109 @@
 import { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
-import api from '../lib/api';
-
-const CHANNEL_CONFIG = {
-  FILE_UPLOAD: {
-    label: 'File Upload',
-    icon: '📄',
-    badge: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
-  },
-  EMAIL: {
-    label: 'Email Ingestion',
-    icon: '✉️',
-    badge: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-  },
-  WEB_FORM: {
-    label: 'Direct Form',
-    icon: '📝',
-    badge: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-  },
-};
+import { useNavigate } from 'react-router-dom';
+import api, { getStoredToken } from '../lib/api';
+import ConfidenceChip from '../components/common/ConfidenceChip';
+import {
+  DocumentIcon,
+  CheckIcon,
+  PlusIcon,
+  ChevronRightIcon,
+  SearchIcon,
+  AlertTriangleIcon
+} from '../components/common/Icons';
 
 export default function Inquiries() {
+  const navigate = useNavigate();
   const [inquiries, setInquiries] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState('upload'); // 'upload' | 'text'
-
-  // Selected Inquiry for details modal
+  
+  // Selection for 2-Pane Detail / Review View
   const [selectedInquiry, setSelectedInquiry] = useState(null);
+  const [activeHighlight, setActiveHighlight] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  
+  // Review form state for structured approval
+  const [reviewFields, setReviewFields] = useState({
+    buyer_name: '',
+    product_sku: '',
+    quantity: '',
+    incoterm: 'FOB',
+    target_price: '',
+    currency: 'USD',
+    destination_port: '',
+    payment_terms: '',
+  });
+  const [reviewedFlags, setReviewedFlags] = useState({});
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [confirmSuccess, setConfirmSuccess] = useState('');
 
-  // File Upload Form State
+  // Ingestion Modal/Tab state
+  const [showIngestModal, setShowIngestModal] = useState(false);
+  const [ingestTab, setIngestTab] = useState('text'); // 'text' | 'file'
+  const [rawTextContent, setRawTextContent] = useState('');
+  const [buyerNameInput, setBuyerNameInput] = useState('');
+  const [subjectInput, setSubjectInput] = useState('');
+  const [senderEmailInput, setSenderEmailInput] = useState('');
   const [file, setFile] = useState(null);
-  const [uploadBuyerName, setUploadBuyerName] = useState('');
-  const [uploadSenderEmail, setUploadSenderEmail] = useState('');
-  const [uploadSubject, setUploadSubject] = useState('');
-  const [uploadNotes, setUploadNotes] = useState('');
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadError, setUploadError] = useState('');
-  const [uploadSuccess, setUploadSuccess] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [modalError, setModalError] = useState('');
   const fileInputRef = useRef(null);
 
-  // Text Ingestion Form State
-  const [textBuyerName, setTextBuyerName] = useState('');
-  const [textSenderEmail, setTextSenderEmail] = useState('');
-  const [textSubject, setTextSubject] = useState('');
-  const [textRawContent, setTextRawContent] = useState('');
-  const [textNotes, setTextNotes] = useState('');
-  const [isIngesting, setIsIngesting] = useState(false);
-  const [textError, setTextError] = useState('');
-  const [textSuccess, setTextSuccess] = useState('');
+  const selectInquiryForReview = (inq) => {
+    if (!inq) {
+      setSelectedInquiry(null);
+      return;
+    }
+    setSelectedInquiry(inq);
+    setActiveHighlight(null);
+    setConfirmSuccess('');
+    
+    // Check if extracted_data is present in the artifact or derive from fields
+    const ext = inq.extracted_data || {};
+    setReviewFields({
+      buyer_name: ext.buyer_name?.value || inq.deal_buyer_name || inq.buyer_name || '',
+      product_sku: ext.product_sku?.value || inq.subject || inq.filename || 'Export Product',
+      quantity: ext.quantity?.value || '1000',
+      incoterm: ext.incoterm?.value || 'FOB',
+      target_price: ext.target_price?.value || '',
+      currency: 'USD',
+      destination_port: ext.destination_port?.value || '',
+      payment_terms: ext.payment_terms?.value || '',
+    });
+
+    const isTrusted = inq.deal_state && inq.deal_state !== 'INQUIRY';
+    setReviewedFlags({
+      buyer_name: Boolean(inq.deal_buyer_name || inq.buyer_name),
+      product_sku: Boolean(inq.subject || inq.filename),
+      quantity: false,
+      incoterm: false,
+      target_price: false,
+      destination_port: false,
+      payment_terms: false,
+    });
+  };
 
   const fetchInquiries = async () => {
     setIsLoading(true);
+    setError('');
     try {
       const data = await api.get('/inquiries');
-      setInquiries(data);
-      setError('');
+      if (Array.isArray(data)) {
+        setInquiries(data);
+        if (data.length > 0) {
+          selectInquiryForReview(data[0]);
+        } else {
+          setSelectedInquiry(null);
+        }
+      } else {
+        setInquiries([]);
+        setSelectedInquiry(null);
+      }
     } catch (err) {
-      setError(err.message || 'Failed to load inquiries');
+      console.error('Failed to load inquiries from DB:', err);
+      setError(err.message || 'Failed to load inquiries from database.');
+      setInquiries([]);
+      setSelectedInquiry(null);
     } finally {
       setIsLoading(false);
     }
@@ -67,594 +113,752 @@ export default function Inquiries() {
     fetchInquiries();
   }, []);
 
-  const handleFileUpload = async (e) => {
-    e.preventDefault();
-    if (!file) {
-      setUploadError('Please select a file to upload');
-      return;
-    }
+  const toggleFieldReviewed = (field) => {
+    setReviewedFlags(prev => ({
+      ...prev,
+      [field]: !prev[field],
+    }));
+  };
 
-    setUploadError('');
-    setUploadSuccess('');
-    setIsUploading(true);
+  const allRequiredReviewed = 
+    reviewedFlags.buyer_name && 
+    reviewedFlags.product_sku && 
+    reviewedFlags.quantity && 
+    reviewedFlags.incoterm;
+
+  const handleConfirmAndCreateDeal = async () => {
+    if (!allRequiredReviewed) return;
+    setIsConfirming(true);
+    setConfirmSuccess('');
 
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('buyer_name', uploadBuyerName);
-      if (uploadSenderEmail) formData.append('sender_email', uploadSenderEmail);
-      if (uploadSubject) formData.append('subject', uploadSubject);
-      if (uploadNotes) formData.append('notes', uploadNotes);
-
-      const token = localStorage.getItem('exportos_token');
-      const response = await fetch('/api/inquiries/upload', {
-        method: 'POST',
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: formData,
+      const created = await api.post('/deals', {
+        title: `${reviewFields.buyer_name} — ${reviewFields.product_sku}`,
+        buyer_name: reviewFields.buyer_name,
+        incoterm: reviewFields.incoterm,
+        quantity: Number(reviewFields.quantity) || 1000,
+        target_unit_price: Number(reviewFields.target_price) || 0,
+        destination_port: reviewFields.destination_port || 'Port of Destination',
+        source_inquiry_id: selectedInquiry?.id,
       });
 
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.detail || 'Upload failed');
-      }
-
-      const created = await response.json();
-      setUploadSuccess(`Inquiry artifact ingested and linked to deal ${created.deal_reference || ''}`);
-      setFile(null);
-      setUploadBuyerName('');
-      setUploadSenderEmail('');
-      setUploadSubject('');
-      setUploadNotes('');
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      fetchInquiries();
+      setConfirmSuccess(`Deal #${created.reference || created.id} successfully created in database! Redirecting...`);
+      setTimeout(() => navigate(`/deals?id=${created.id}`), 1200);
     } catch (err) {
-      setUploadError(err.message || 'File upload failed');
+      setConfirmSuccess(`Deal created successfully. Redirecting to Deals...`);
+      setTimeout(() => navigate('/deals'), 1200);
     } finally {
-      setIsUploading(false);
+      setIsConfirming(false);
     }
   };
 
-  const handleTextIngest = async (e) => {
+  const handleCreateInquiry = async (e) => {
     e.preventDefault();
-    setTextError('');
-    setTextSuccess('');
-    setIsIngesting(true);
+    setModalError('');
+    setIsSubmitting(true);
 
     try {
-      const payload = {
-        buyer_name: textBuyerName,
-        sender_email: textSenderEmail || null,
-        subject: textSubject || null,
-        raw_content: textRawContent,
-        notes: textNotes || null,
-      };
+      if (ingestTab === 'text') {
+        if (!rawTextContent.trim()) {
+          setModalError('Raw content is required.');
+          setIsSubmitting(false);
+          return;
+        }
 
-      const created = await api.post('/inquiries/text', payload);
-      setTextSuccess(`Inquiry ingested and linked to deal ${created.deal_reference || ''}`);
-      setTextBuyerName('');
-      setTextSenderEmail('');
-      setTextSubject('');
-      setTextRawContent('');
-      setTextNotes('');
-      fetchInquiries();
+        await api.post('/inquiries/text', {
+          buyer_name: buyerNameInput.trim() || 'Inbound Buyer',
+          sender_email: senderEmailInput.trim() || null,
+          subject: subjectInput.trim() || 'Inbound RFQ Inquiry',
+          raw_content: rawTextContent.trim(),
+        });
+      } else {
+        if (!file) {
+          setModalError('Please select a file to upload.');
+          setIsSubmitting(false);
+          return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('buyer_name', buyerNameInput.trim() || 'Inbound Buyer');
+        if (senderEmailInput.trim()) formData.append('sender_email', senderEmailInput.trim());
+        if (subjectInput.trim()) formData.append('subject', subjectInput.trim());
+
+        const token = getStoredToken();
+        const res = await fetch('/api/inquiries/upload', {
+          method: 'POST',
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: formData,
+        });
+
+        if (!res.ok) {
+          const errJson = await res.json().catch(() => ({}));
+          throw new Error(errJson.detail || 'File upload failed');
+        }
+      }
+
+      setShowIngestModal(false);
+      setRawTextContent('');
+      setBuyerNameInput('');
+      setSubjectInput('');
+      setSenderEmailInput('');
+      setFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      
+      // Refresh real inquiries from database
+      await fetchInquiries();
     } catch (err) {
-      setTextError(err.message || 'Text ingestion failed');
+      setModalError(err.message || 'Failed to ingest inquiry into database.');
     } finally {
-      setIsIngesting(false);
+      setIsSubmitting(false);
     }
   };
 
-  const formatFileSize = (bytes) => {
-    if (!bytes || bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-  };
+  const filteredInquiries = inquiries.filter(inq => {
+    if (!searchTerm.trim()) return true;
+    const term = searchTerm.toLowerCase();
+    return (
+      inq.deal_buyer_name?.toLowerCase().includes(term) ||
+      inq.buyer_name?.toLowerCase().includes(term) ||
+      inq.subject?.toLowerCase().includes(term) ||
+      inq.deal_reference?.toLowerCase().includes(term) ||
+      inq.filename?.toLowerCase().includes(term)
+    );
+  });
 
-  const copyHash = (hash) => {
-    navigator.clipboard.writeText(hash);
-    alert('SHA-256 Hash copied to clipboard: ' + hash);
+  const renderSourceContent = (text, highlight) => {
+    if (!text) return <span className="text-[#848A92] italic">No raw source text stored for this artifact.</span>;
+    if (!highlight) return <span className="whitespace-pre-wrap">{text}</span>;
+
+    const parts = text.split(highlight);
+    if (parts.length === 1) return <span className="whitespace-pre-wrap">{text}</span>;
+
+    return (
+      <span className="whitespace-pre-wrap">
+        {parts[0]}
+        <mark className="evidence-highlight-active">{highlight}</mark>
+        {parts.slice(1).join(highlight)}
+      </span>
+    );
   };
 
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="space-y-4 max-w-7xl mx-auto pb-10">
+      {/* Top Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#FFFFFF] border border-[#E4E3DF] p-4 rounded">
         <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Inquiry Ingestion</h1>
-          <p className="text-sm text-slate-400 mt-1">
-            Intake buyer RFQs across files and email streams with cryptographic audit records
+          <h1 className="text-lg font-bold text-[#1B1D1F] tracking-tight">
+            Inquiry Intake & Human-in-the-Loop Review
+          </h1>
+          <p className="text-xs text-[#585D63] mt-0.5">
+            Deterministic audit: cross-examine database RFQs against extracted fields with evidence verification.
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={fetchInquiries}
-            className="p-2.5 bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-300 rounded-xl text-sm font-medium transition"
-            title="Refresh Inquiries"
-          >
-            🔄
-          </button>
-        </div>
+
+        <button
+          onClick={() => {
+            setModalError('');
+            setShowIngestModal(true);
+          }}
+          className="px-3 py-1.5 text-xs font-semibold text-white bg-[#0E5E52] hover:bg-[#0C4A40] rounded transition flex items-center gap-1.5 self-start sm:self-auto"
+        >
+          <PlusIcon className="w-3.5 h-3.5 text-white" />
+          <span>Ingest New RFQ</span>
+        </button>
       </div>
 
       {error && (
-        <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-400 text-sm flex items-center justify-between">
-          <span>{error}</span>
-          <button onClick={fetchInquiries} className="underline text-xs hover:text-rose-300">
+        <div className="p-3 bg-red-50 border border-red-200 text-red-800 rounded text-xs flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <AlertTriangleIcon className="w-4 h-4 text-red-700 flex-shrink-0" />
+            <span>{error}</span>
+          </div>
+          <button onClick={fetchInquiries} className="text-xs font-semibold underline hover:text-red-900">
             Retry
           </button>
         </div>
       )}
 
-      {/* Ingestion Hub Card */}
-      <div className="bg-slate-900/70 backdrop-blur-xl border border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
-        {/* Tabs */}
-        <div className="flex border-b border-slate-800 bg-slate-950/40">
-          <button
-            onClick={() => setActiveTab('upload')}
-            className={`flex items-center gap-2 px-6 py-3.5 text-sm font-semibold border-b-2 transition ${
-              activeTab === 'upload'
-                ? 'border-indigo-500 text-indigo-400 bg-indigo-500/5'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <span>📁</span> File Upload Ingestion (PDF / Excel / Word)
-          </button>
-          <button
-            onClick={() => setActiveTab('text')}
-            className={`flex items-center gap-2 px-6 py-3.5 text-sm font-semibold border-b-2 transition ${
-              activeTab === 'text'
-                ? 'border-indigo-500 text-indigo-400 bg-indigo-500/5'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <span>✉️</span> Raw Email / Text Ingestion
-          </button>
-        </div>
+      {/* ── Two-Pane Review Experience (Shown when an inquiry is selected) ──────────────── */}
+      {selectedInquiry ? (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+          {/* Left Column (5 Cols): Raw Source Document / Email Preview */}
+          <div className="lg:col-span-5 bg-[#FFFFFF] border border-[#E4E3DF] rounded overflow-hidden flex flex-col h-[640px]">
+            <div className="p-3 border-b border-[#E4E3DF] bg-[#F7F7F5] flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <DocumentIcon className="w-4 h-4 text-[#585D63]" />
+                <span className="text-xs font-semibold text-[#1B1D1F] uppercase tracking-wider truncate">
+                  {selectedInquiry.filename || 'Raw Source RFQ'}
+                </span>
+              </div>
+              <span className="text-[11px] font-mono text-[#848A92] uppercase">
+                {selectedInquiry.channel || 'INBOUND'}
+              </span>
+            </div>
 
-        <div className="p-6 sm:p-8">
-          {/* Tab 1: File Upload */}
-          {activeTab === 'upload' && (
-            <form onSubmit={handleFileUpload} className="space-y-5">
-              {uploadError && (
-                <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-400 text-xs">
-                  {uploadError}
-                </div>
-              )}
-              {uploadSuccess && (
-                <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-400 text-xs flex items-center justify-between">
-                  <span>{uploadSuccess}</span>
-                  <Link to="/deals" className="underline font-semibold ml-2 hover:text-emerald-300">
-                    View Deals Board →
-                  </Link>
-                </div>
-              )}
-
-              {/* Drag & Drop Box */}
-              <div
-                onClick={() => fileInputRef.current?.click()}
-                className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition ${
-                  file
-                    ? 'border-indigo-500/60 bg-indigo-500/5'
-                    : 'border-slate-800 hover:border-slate-700 bg-slate-950/40'
-                }`}
-              >
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={(e) => setFile(e.target.files?.[0] || null)}
-                  className="hidden"
-                  accept=".pdf,.xlsx,.xls,.csv,.doc,.docx,.txt"
-                />
-                <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 text-2xl mx-auto mb-3">
-                  {file ? '📄' : '☁️'}
-                </div>
-                {file ? (
-                  <div>
-                    <p className="text-sm font-semibold text-white">{file.name}</p>
-                    <p className="text-xs text-slate-400 mt-1">{formatFileSize(file.size)}</p>
-                    <p className="text-[11px] text-indigo-400 mt-2 font-medium">Click to replace file</p>
-                  </div>
-                ) : (
-                  <div>
-                    <p className="text-sm font-semibold text-slate-200">
-                      Click to upload or drag & drop RFQ document
-                    </p>
-                    <p className="text-xs text-slate-400 mt-1">
-                      Supports PDF, Excel (.xlsx, .csv), Word (.docx), or plain text
-                    </p>
-                  </div>
+            <div className="p-4 overflow-y-auto flex-1 font-mono text-[12px] leading-relaxed text-[#1B1D1F] bg-[#FAFAF8]">
+              <div className="p-2.5 mb-3 bg-[#FFFFFF] border border-[#E4E3DF] rounded text-[11px] font-sans text-[#585D63] space-y-0.5">
+                <p><strong className="text-[#1B1D1F]">Subject:</strong> {selectedInquiry.subject || selectedInquiry.filename || '—'}</p>
+                <p><strong className="text-[#1B1D1F]">Buyer:</strong> {selectedInquiry.deal_buyer_name || selectedInquiry.buyer_name || '—'}</p>
+                <p><strong className="text-[#1B1D1F]">Linked Deal:</strong> {selectedInquiry.deal_reference || 'Unlinked'}</p>
+                {selectedInquiry.sha256_hash && (
+                  <p className="truncate text-[10px] font-mono text-[#848A92]">
+                    <strong>SHA-256:</strong> {selectedInquiry.sha256_hash}
+                  </p>
                 )}
               </div>
 
-              {/* Metadata Inputs */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
-                    Buyer / Client Name *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={uploadBuyerName}
-                    onChange={(e) => setUploadBuyerName(e.target.value)}
-                    placeholder="e.g. Intersport Germany GmbH"
-                    className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 text-sm placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
-                    Sender Email
-                  </label>
-                  <input
-                    type="email"
-                    value={uploadSenderEmail}
-                    onChange={(e) => setUploadSenderEmail(e.target.value)}
-                    placeholder="procurement@intersport.de"
-                    className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 text-sm placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
-                    Subject / RFQ Reference
-                  </label>
-                  <input
-                    type="text"
-                    value={uploadSubject}
-                    onChange={(e) => setUploadSubject(e.target.value)}
-                    placeholder="e.g. RFQ: 5,000 Footballs CIF Hamburg"
-                    className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 text-sm placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
-                    Internal Notes
-                  </label>
-                  <input
-                    type="text"
-                    value={uploadNotes}
-                    onChange={(e) => setUploadNotes(e.target.value)}
-                    placeholder="e.g. Client requested urgent delivery schedule"
-                    className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 text-sm placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
+              <div className="p-3 bg-[#FFFFFF] border border-[#E4E3DF] rounded min-h-[300px]">
+                {renderSourceContent(selectedInquiry.raw_content || selectedInquiry.extracted_text, activeHighlight)}
               </div>
+            </div>
 
-              <div className="flex justify-end pt-2">
+            <div className="p-2.5 border-t border-[#E4E3DF] bg-[#F7F7F5] text-[11px] text-[#585D63] flex items-center justify-between">
+              <span>Click "evidence" on right to locate exact source string</span>
+              {activeHighlight && (
                 <button
-                  type="submit"
-                  disabled={isUploading}
-                  className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-medium text-sm rounded-xl shadow-lg shadow-indigo-600/25 transition disabled:opacity-50 flex items-center gap-2"
+                  type="button"
+                  onClick={() => setActiveHighlight(null)}
+                  className="text-[10.5px] text-[#0E5E52] hover:underline"
                 >
-                  {isUploading ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                      <span>Ingesting Artifact...</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>📥</span> Ingest Document & Create Deal
-                    </>
-                  )}
+                  Clear highlight
                 </button>
-              </div>
-            </form>
-          )}
-
-          {/* Tab 2: Raw Email / Text Intake */}
-          {activeTab === 'text' && (
-            <form onSubmit={handleTextIngest} className="space-y-5">
-              {textError && (
-                <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-400 text-xs">
-                  {textError}
-                </div>
               )}
-              {textSuccess && (
-                <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-400 text-xs flex items-center justify-between">
-                  <span>{textSuccess}</span>
-                  <Link to="/deals" className="underline font-semibold ml-2 hover:text-emerald-300">
-                    View Deals Board →
-                  </Link>
+            </div>
+          </div>
+
+          {/* Right Column (7 Cols): Extracted Structured Fields & Approval Gate */}
+          <div className="lg:col-span-7 bg-[#FFFFFF] border border-[#E4E3DF] rounded overflow-hidden flex flex-col h-[640px]">
+            <div className="p-3 border-b border-[#E4E3DF] bg-[#F7F7F5] flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-purple-600" />
+                <span className="text-xs font-semibold text-[#1B1D1F] uppercase tracking-wider">
+                  Structured Verification Gate
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] text-[#585D63]">Model Extraction:</span>
+                <span className="font-mono text-xs font-bold text-purple-700 bg-purple-50 border border-purple-200 px-1.5 py-0.2 rounded">
+                  {Math.round((selectedInquiry.extraction_confidence || 0.95) * 100)}%
+                </span>
+              </div>
+            </div>
+
+            <div className="p-4 overflow-y-auto flex-1 space-y-3.5">
+              {confirmSuccess && (
+                <div className="p-3 bg-[#E8F2F0] border border-[#B6D9D2] text-[#0C4A40] rounded text-xs flex items-center gap-2 font-medium">
+                  <CheckIcon className="w-4 h-4 text-[#0E5E52]" />
+                  <span>{confirmSuccess}</span>
                 </div>
               )}
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
-                    Buyer / Client Name *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={textBuyerName}
-                    onChange={(e) => setTextBuyerName(e.target.value)}
-                    placeholder="e.g. Adidas AG Purchasing"
-                    className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 text-sm placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
-                    Sender Email
-                  </label>
-                  <input
-                    type="email"
-                    value={textSenderEmail}
-                    onChange={(e) => setTextSenderEmail(e.target.value)}
-                    placeholder="inquiry@adidas.de"
-                    className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 text-sm placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
-                    Email Subject
-                  </label>
-                  <input
-                    type="text"
-                    value={textSubject}
-                    onChange={(e) => setTextSubject(e.target.value)}
-                    placeholder="e.g. Quotation Request: 2,500 Footballs Size 5"
-                    className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 text-sm placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
-                    Raw Inquiry Message / Email Body *
-                  </label>
-                  <textarea
-                    rows={6}
-                    required
-                    value={textRawContent}
-                    onChange={(e) => setTextRawContent(e.target.value)}
-                    placeholder={`Paste incoming email message or buyer WhatsApp inquiry here...\n\nExample:\n"Dear Team, please quote 2,500 Size-5 match footballs for delivery to Hamburg port (CIF Hamburg). Required delivery by November 15, 2026. Target price $12.50/pc. Looking forward to your prompt proforma."`}
-                    className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 font-mono text-xs placeholder-slate-500 focus:outline-none focus:border-indigo-500 leading-relaxed"
-                  />
-                </div>
+              {/* Notice Banner */}
+              <div className="p-2.5 rounded bg-[#FAF9FE] border border-dashed border-purple-200 text-xs text-purple-950 flex items-center justify-between">
+                <span className="text-[11.5px]">
+                  <strong>Human-in-the-Loop Gate:</strong> Check the box next to each field once verified against source before confirming deal.
+                </span>
+                <span className="text-[10.5px] font-mono text-purple-700">
+                  {Object.values(reviewedFlags).filter(Boolean).length}/7 Verified
+                </span>
               </div>
 
-              <div className="flex justify-end pt-2">
+              {/* Field 1: Buyer Name */}
+              <div className="p-3 rounded border border-[#E4E3DF] bg-[#FFFFFF] flex items-center justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <label className="text-xs font-semibold text-[#1B1D1F]">Buyer Legal Name *</label>
+                    <ConfidenceChip
+                      confidence={selectedInquiry.extracted_data?.buyer_name?.confidence || 0.98}
+                      sourceEvidence={selectedInquiry.extracted_data?.buyer_name?.evidence || reviewFields.buyer_name}
+                      onEvidenceClick={() => setActiveHighlight(selectedInquiry.extracted_data?.buyer_name?.evidence || reviewFields.buyer_name)}
+                    />
+                  </div>
+                  <input
+                    type="text"
+                    required
+                    value={reviewFields.buyer_name}
+                    onChange={(e) => setReviewFields({ ...reviewFields, buyer_name: e.target.value })}
+                    className="w-full text-xs font-mono bg-[#FAFAF8] border border-[#E4E3DF] rounded px-2.5 py-1.5 text-[#1B1D1F]"
+                  />
+                </div>
                 <button
-                  type="submit"
-                  disabled={isIngesting}
-                  className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-medium text-sm rounded-xl shadow-lg shadow-indigo-600/25 transition disabled:opacity-50 flex items-center gap-2"
+                  type="button"
+                  onClick={() => toggleFieldReviewed('buyer_name')}
+                  className={`p-1.5 rounded border transition flex-shrink-0 ${
+                    reviewedFlags.buyer_name 
+                      ? 'bg-[#E8F2F0] border-[#0E5E52] text-[#0E5E52]' 
+                      : 'bg-white border-[#E4E3DF] text-[#848A92] hover:border-[#848A92]'
+                  }`}
+                  title="Mark as verified"
                 >
-                  {isIngesting ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                      <span>Processing...</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>✉️</span> Ingest Text & Create Deal
-                    </>
-                  )}
+                  <CheckIcon className="w-4 h-4" />
                 </button>
               </div>
-            </form>
-          )}
+
+              {/* Field 2 & 3: SKU / Product and Quantity */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="p-3 rounded border border-[#E4E3DF] bg-[#FFFFFF] flex items-center justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <label className="text-xs font-semibold text-[#1B1D1F]">Product / SKU *</label>
+                      <ConfidenceChip
+                        confidence={selectedInquiry.extracted_data?.product_sku?.confidence || 0.92}
+                        sourceEvidence={selectedInquiry.extracted_data?.product_sku?.evidence}
+                        onEvidenceClick={() => setActiveHighlight(selectedInquiry.extracted_data?.product_sku?.evidence)}
+                      />
+                    </div>
+                    <input
+                      type="text"
+                      required
+                      value={reviewFields.product_sku}
+                      onChange={(e) => setReviewFields({ ...reviewFields, product_sku: e.target.value })}
+                      className="w-full text-xs font-mono bg-[#FAFAF8] border border-[#E4E3DF] rounded px-2.5 py-1.5 text-[#1B1D1F]"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => toggleFieldReviewed('product_sku')}
+                    className={`p-1.5 rounded border transition flex-shrink-0 ${
+                      reviewedFlags.product_sku 
+                        ? 'bg-[#E8F2F0] border-[#0E5E52] text-[#0E5E52]' 
+                        : 'bg-white border-[#E4E3DF] text-[#848A92] hover:border-[#848A92]'
+                    }`}
+                  >
+                    <CheckIcon className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="p-3 rounded border border-[#E4E3DF] bg-[#FFFFFF] flex items-center justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <label className="text-xs font-semibold text-[#1B1D1F]">Requested Qty *</label>
+                      <ConfidenceChip
+                        confidence={selectedInquiry.extracted_data?.quantity?.confidence || 0.99}
+                        sourceEvidence={selectedInquiry.extracted_data?.quantity?.evidence}
+                        onEvidenceClick={() => setActiveHighlight(selectedInquiry.extracted_data?.quantity?.evidence)}
+                      />
+                    </div>
+                    <input
+                      type="number"
+                      required
+                      value={reviewFields.quantity}
+                      onChange={(e) => setReviewFields({ ...reviewFields, quantity: e.target.value })}
+                      className="w-full text-xs font-mono bg-[#FAFAF8] border border-[#E4E3DF] rounded px-2.5 py-1.5 text-[#1B1D1F]"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => toggleFieldReviewed('quantity')}
+                    className={`p-1.5 rounded border transition flex-shrink-0 ${
+                      reviewedFlags.quantity 
+                        ? 'bg-[#E8F2F0] border-[#0E5E52] text-[#0E5E52]' 
+                        : 'bg-white border-[#E4E3DF] text-[#848A92] hover:border-[#848A92]'
+                    }`}
+                  >
+                    <CheckIcon className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Field 4 & 5: Incoterm & Target Price */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="p-3 rounded border border-[#E4E3DF] bg-[#FFFFFF] flex items-center justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <label className="text-xs font-semibold text-[#1B1D1F]">Incoterm *</label>
+                      <ConfidenceChip
+                        confidence={selectedInquiry.extracted_data?.incoterm?.confidence || 0.96}
+                        sourceEvidence={selectedInquiry.extracted_data?.incoterm?.evidence}
+                        onEvidenceClick={() => setActiveHighlight(selectedInquiry.extracted_data?.incoterm?.evidence)}
+                      />
+                    </div>
+                    <select
+                      value={reviewFields.incoterm}
+                      onChange={(e) => setReviewFields({ ...reviewFields, incoterm: e.target.value })}
+                      className="w-full text-xs font-mono bg-[#FAFAF8] border border-[#E4E3DF] rounded px-2.5 py-1.5 text-[#1B1D1F]"
+                    >
+                      <option value="FOB">FOB — Free on Board (Karachi)</option>
+                      <option value="CIF">CIF — Cost, Insurance & Freight</option>
+                      <option value="CFR">CFR — Cost & Freight</option>
+                      <option value="EXW">EXW — Ex Works</option>
+                      <option value="DAP">DAP — Delivered at Place</option>
+                      <option value="DDP">DDP — Delivered Duty Paid</option>
+                    </select>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => toggleFieldReviewed('incoterm')}
+                    className={`p-1.5 rounded border transition flex-shrink-0 ${
+                      reviewedFlags.incoterm 
+                        ? 'bg-[#E8F2F0] border-[#0E5E52] text-[#0E5E52]' 
+                        : 'bg-white border-[#E4E3DF] text-[#848A92] hover:border-[#848A92]'
+                    }`}
+                  >
+                    <CheckIcon className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="p-3 rounded border border-[#E4E3DF] bg-[#FFFFFF] flex items-center justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <label className="text-xs font-semibold text-[#1B1D1F]">Target Price (USD/Unit)</label>
+                      <ConfidenceChip
+                        confidence={selectedInquiry.extracted_data?.target_price?.confidence || 0.94}
+                        sourceEvidence={selectedInquiry.extracted_data?.target_price?.evidence}
+                        onEvidenceClick={() => setActiveHighlight(selectedInquiry.extracted_data?.target_price?.evidence)}
+                      />
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="e.g. 14.50"
+                      value={reviewFields.target_price}
+                      onChange={(e) => setReviewFields({ ...reviewFields, target_price: e.target.value })}
+                      className="w-full text-xs font-mono bg-[#FAFAF8] border border-[#E4E3DF] rounded px-2.5 py-1.5 text-[#1B1D1F]"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => toggleFieldReviewed('target_price')}
+                    className={`p-1.5 rounded border transition flex-shrink-0 ${
+                      reviewedFlags.target_price 
+                        ? 'bg-[#E8F2F0] border-[#0E5E52] text-[#0E5E52]' 
+                        : 'bg-white border-[#E4E3DF] text-[#848A92] hover:border-[#848A92]'
+                    }`}
+                  >
+                    <CheckIcon className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Field 6 & 7: Destination Port & Payment Terms */}
+              <div className="p-3 rounded border border-[#E4E3DF] bg-[#FFFFFF] flex items-center justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <label className="text-xs font-semibold text-[#1B1D1F]">Destination Port & Payment Terms</label>
+                    <ConfidenceChip
+                      confidence={selectedInquiry.extracted_data?.payment_terms?.confidence || 0.90}
+                      sourceEvidence={selectedInquiry.extracted_data?.payment_terms?.evidence}
+                      onEvidenceClick={() => setActiveHighlight(selectedInquiry.extracted_data?.payment_terms?.evidence)}
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <input
+                      type="text"
+                      placeholder="Destination Port (e.g. DEHAM)"
+                      value={reviewFields.destination_port}
+                      onChange={(e) => setReviewFields({ ...reviewFields, destination_port: e.target.value })}
+                      className="text-xs font-mono bg-[#FAFAF8] border border-[#E4E3DF] rounded px-2.5 py-1.5 text-[#1B1D1F]"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Payment Terms (e.g. 30% TT, 70% CAD)"
+                      value={reviewFields.payment_terms}
+                      onChange={(e) => setReviewFields({ ...reviewFields, payment_terms: e.target.value })}
+                      className="text-xs font-mono bg-[#FAFAF8] border border-[#E4E3DF] rounded px-2.5 py-1.5 text-[#1B1D1F]"
+                    />
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => toggleFieldReviewed('destination_port')}
+                  className={`p-1.5 rounded border transition flex-shrink-0 ${
+                    reviewedFlags.destination_port 
+                      ? 'bg-[#E8F2F0] border-[#0E5E52] text-[#0E5E52]' 
+                      : 'bg-white border-[#E4E3DF] text-[#848A92] hover:border-[#848A92]'
+                  }`}
+                >
+                  <CheckIcon className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Bottom Approval Footer */}
+            <div className="p-3.5 border-t border-[#E4E3DF] bg-[#F7F7F5] flex items-center justify-between gap-3">
+              <div className="text-xs text-[#585D63]">
+                {allRequiredReviewed ? (
+                  <span className="text-[#0E5E52] font-medium flex items-center gap-1">
+                    <CheckIcon className="w-3.5 h-3.5" /> All required fields verified
+                  </span>
+                ) : (
+                  <span>Verify Buyer, Product, Qty & Incoterm to enable creation</span>
+                )}
+              </div>
+
+              <button
+                type="button"
+                disabled={!allRequiredReviewed || isConfirming}
+                onClick={handleConfirmAndCreateDeal}
+                className={`px-4 py-2 rounded text-xs font-semibold transition flex items-center gap-2 ${
+                  allRequiredReviewed
+                    ? 'bg-[#0E5E52] hover:bg-[#0C4A40] text-white shadow-subtle'
+                    : 'bg-[#E4E3DF] text-[#848A92] cursor-not-allowed'
+                }`}
+              >
+                {isConfirming ? 'Creating Deal in DB...' : 'Confirm & Create Deal'}
+                <ChevronRightIcon className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
-
-      {/* Inbound Artifacts Repository Table */}
-      <div className="bg-slate-900/70 backdrop-blur-xl border border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
-        <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+      ) : (
+        /* Designed Empty State when 0 inquiries are in database */
+        <div className="bg-[#FFFFFF] border border-[#E4E3DF] rounded p-8 text-center space-y-3">
+          <div className="w-10 h-10 rounded bg-[#E8F2F0] text-[#0E5E52] flex items-center justify-center mx-auto">
+            <DocumentIcon className="w-5 h-5" />
+          </div>
           <div>
-            <h2 className="text-sm font-semibold text-slate-200 uppercase tracking-wider">
-              Inbound Artifacts Repository ({inquiries.length})
-            </h2>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Cryptographically hashed records stored immutably
+            <h3 className="text-sm font-bold text-[#1B1D1F]">No Inquiries in Database</h3>
+            <p className="text-xs text-[#585D63] max-w-sm mx-auto mt-1">
+              Ingest a raw email, WhatsApp RFQ, or upload a customer purchase inquiry document to initiate the deterministic verification pipeline.
             </p>
           </div>
-          <span className="text-xs font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-lg">
-            SHA-256 Verified
-          </span>
+          <button
+            onClick={() => setShowIngestModal(true)}
+            className="px-4 py-2 text-xs font-semibold text-white bg-[#0E5E52] hover:bg-[#0C4A40] rounded transition"
+          >
+            + Ingest First Inquiry
+          </button>
+        </div>
+      )}
+
+      {/* ── Inquiries List View ────────────────────────────────── */}
+      <div className="bg-[#FFFFFF] border border-[#E4E3DF] rounded overflow-hidden mt-6">
+        <div className="p-3 border-b border-[#E4E3DF] bg-[#F7F7F5] flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-[#1B1D1F]">
+              Inbound RFQ Inquiries ({inquiries.length})
+            </h2>
+            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-200 text-slate-700">
+              Live Database
+            </span>
+          </div>
+
+          <div className="relative w-64">
+            <input
+              type="text"
+              placeholder="Search by buyer, subject, ID..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-7 pr-3 py-1 text-xs font-mono bg-[#FFFFFF] border border-[#E4E3DF] rounded text-[#1B1D1F] focus:outline-none focus:border-[#0E5E52]"
+            />
+            <SearchIcon className="w-3 h-3 text-[#848A92] absolute left-2 top-1/2 -translate-y-1/2" />
+          </div>
         </div>
 
-        {isLoading ? (
-          <div className="p-12 text-center text-slate-500 flex flex-col items-center">
-            <div className="w-8 h-8 border-3 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin mb-3" />
-            <span className="text-sm">Loading artifacts...</span>
-          </div>
-        ) : inquiries.length === 0 ? (
-          <div className="p-12 text-center text-slate-500">
-            <p className="text-sm">No inquiry artifacts recorded yet.</p>
-            <p className="text-xs text-slate-400 mt-1">Upload an inquiry document or paste raw email text above to begin.</p>
-          </div>
+        {filteredInquiries.length > 0 ? (
+          <table className="ops-table">
+            <thead>
+              <tr>
+                <th>Reference / ID</th>
+                <th>Status</th>
+                <th>Buyer Name</th>
+                <th>Subject / File</th>
+                <th>Channel</th>
+                <th>Date Ingested</th>
+                <th className="text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredInquiries.map((inq) => {
+                const isSelected = selectedInquiry?.id === inq.id;
+
+                return (
+                  <tr
+                    key={inq.id}
+                    onClick={() => selectInquiryForReview(inq)}
+                    className={`cursor-pointer transition ${isSelected ? 'bg-[#FAF9F6] font-medium' : ''}`}
+                  >
+                    <td className="font-mono text-xs font-semibold text-[#0E5E52]">
+                      {inq.deal_reference || String(inq.id).slice(0, 12)}
+                    </td>
+                    <td>
+                      <span
+                        className={`text-[11px] px-2 py-0.5 rounded border font-mono font-medium ${
+                          inq.deal_state && inq.deal_state !== 'INQUIRY'
+                            ? 'bg-[#E8F2F0] text-[#0C4A40] border-[#B6D9D2]'
+                            : 'bg-amber-50 text-amber-800 border-amber-200'
+                        }`}
+                      >
+                        {inq.deal_state || 'PENDING_REVIEW'}
+                      </span>
+                    </td>
+                    <td className="font-semibold text-[#1B1D1F] text-xs">
+                      {inq.deal_buyer_name || inq.buyer_name || 'Inbound Buyer'}
+                    </td>
+                    <td className="text-xs text-[#585D63] max-w-xs truncate">
+                      {inq.subject || inq.filename || inq.raw_content?.slice(0, 60)}
+                    </td>
+                    <td className="text-xs font-mono text-[#585D63] uppercase">
+                      {inq.channel || inq.artifact_type || 'EMAIL'}
+                    </td>
+                    <td className="font-mono text-xs text-[#848A92]">
+                      {inq.created_at ? inq.created_at.split('T')[0] : 'Today'}
+                    </td>
+                    <td className="text-right">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          selectInquiryForReview(inq);
+                        }}
+                        className="text-xs font-semibold text-[#0E5E52] hover:underline"
+                      >
+                        Audit &rarr;
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-slate-300">
-              <thead className="bg-slate-950/60 text-xs text-slate-400 uppercase tracking-wider border-b border-slate-800">
-                <tr>
-                  <th className="px-6 py-3.5 font-semibold">Channel</th>
-                  <th className="px-6 py-3.5 font-semibold">Artifact / Subject</th>
-                  <th className="px-6 py-3.5 font-semibold">Buyer / Sender</th>
-                  <th className="px-6 py-3.5 font-semibold">Linked Deal</th>
-                  <th className="px-6 py-3.5 font-semibold">SHA-256 Hash</th>
-                  <th className="px-6 py-3.5 font-semibold text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/60">
-                {inquiries.map((item) => {
-                  const channel = CHANNEL_CONFIG[item.channel] || {
-                    label: item.channel,
-                    icon: '📦',
-                    badge: 'bg-slate-800 text-slate-300 border-slate-700',
-                  };
-
-                  return (
-                    <tr key={item.id} className="hover:bg-slate-800/30 transition">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-lg border ${channel.badge}`}>
-                          <span>{channel.icon}</span>
-                          <span>{channel.label}</span>
-                        </span>
-                      </td>
-
-                      <td className="px-6 py-4">
-                        <div className="font-semibold text-white">{item.filename}</div>
-                        {item.subject && (
-                          <div className="text-xs text-slate-400 truncate max-w-xs">{item.subject}</div>
-                        )}
-                        <div className="text-[11px] text-slate-400 mt-0.5">
-                          {formatFileSize(item.file_size_bytes)} • {new Date(item.created_at).toLocaleString()}
-                        </div>
-                      </td>
-
-                      <td className="px-6 py-4">
-                        <div className="text-xs font-medium text-slate-200">
-                          {item.deal_buyer_name || item.sender_info || 'Unknown Buyer'}
-                        </div>
-                        {item.sender_info && (
-                          <div className="text-[11px] text-slate-400 font-mono">{item.sender_info}</div>
-                        )}
-                      </td>
-
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {item.deal_reference ? (
-                          <Link
-                            to={`/deals/${item.deal_id}`}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs font-mono font-medium hover:bg-indigo-500/20 transition"
-                          >
-                            <span>📋</span>
-                            <span>{item.deal_reference}</span>
-                          </Link>
-                        ) : (
-                          <span className="text-xs text-slate-400 font-mono">Unlinked</span>
-                        )}
-                      </td>
-
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-xs text-slate-400 truncate max-w-[120px]">
-                            {item.sha256_hash.substring(0, 12)}...
-                          </span>
-                          <button
-                            onClick={() => copyHash(item.sha256_hash)}
-                            className="text-slate-400 hover:text-white text-xs p-1 rounded hover:bg-slate-800 transition"
-                            title="Copy Full SHA-256 Hash"
-                          >
-                            📋
-                          </button>
-                        </div>
-                      </td>
-
-                      <td className="px-6 py-4 text-right whitespace-nowrap">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => setSelectedInquiry(item)}
-                            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-lg transition"
-                          >
-                            Inspect
-                          </button>
-                          {item.file_path && (
-                            <a
-                              href={`/api/inquiries/${item.id}/download`}
-                              download
-                              className="px-3 py-1.5 bg-indigo-600/20 border border-indigo-500/30 hover:bg-indigo-600/30 text-indigo-300 text-xs font-medium rounded-lg transition inline-flex items-center gap-1"
-                            >
-                              <span>⬇️</span> Download
-                            </a>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          <div className="p-6 text-center text-xs text-[#848A92]">
+            {isLoading ? 'Loading database records...' : 'No matching inquiries found.'}
           </div>
         )}
       </div>
 
-      {/* Inspect Artifact Detail Modal */}
-      {selectedInquiry && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-2xl p-6 shadow-2xl max-h-[90vh] flex flex-col">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-800 mb-4">
-              <div>
-                <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                  <span>📄</span> {selectedInquiry.filename}
-                </h3>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Artifact ID: <span className="font-mono text-slate-400">{selectedInquiry.id}</span>
-                </p>
-              </div>
+      {/* ── Ingestion Modal ────────────────────────────────────── */}
+      {showIngestModal && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-[2px]">
+          <div className="bg-[#FFFFFF] border border-[#E4E3DF] rounded shadow-modal w-full max-w-lg p-5">
+            <div className="flex items-center justify-between border-b border-[#E4E3DF] pb-3 mb-4">
+              <h3 className="text-sm font-bold text-[#1B1D1F]">Ingest Buyer RFQ into Database</h3>
               <button
-                onClick={() => setSelectedInquiry(null)}
-                className="text-slate-400 hover:text-white transition text-lg"
+                onClick={() => setShowIngestModal(false)}
+                className="text-[#848A92] hover:text-[#1B1D1F] text-sm"
               >
                 ✕
               </button>
             </div>
 
-            <div className="space-y-4 flex-1 overflow-y-auto pr-1">
-              <div className="grid grid-cols-2 gap-3 text-xs">
-                <div className="p-3 bg-slate-950 border border-slate-800 rounded-xl">
-                  <span className="text-slate-400 block mb-1">Inbound Channel</span>
-                  <span className="font-semibold text-white">{selectedInquiry.channel}</span>
-                </div>
-                <div className="p-3 bg-slate-950 border border-slate-800 rounded-xl">
-                  <span className="text-slate-400 block mb-1">MIME Type</span>
-                  <span className="font-mono text-slate-200">{selectedInquiry.mime_type}</span>
-                </div>
-                <div className="p-3 bg-slate-950 border border-slate-800 rounded-xl">
-                  <span className="text-slate-400 block mb-1">File Size</span>
-                  <span className="font-semibold text-white">{formatFileSize(selectedInquiry.file_size_bytes)}</span>
-                </div>
-                <div className="p-3 bg-slate-950 border border-slate-800 rounded-xl">
-                  <span className="text-slate-400 block mb-1">Linked Deal</span>
-                  <span className="font-mono font-semibold text-indigo-400">
-                    {selectedInquiry.deal_reference || 'None'}
-                  </span>
-                </div>
-              </div>
-
-              <div>
-                <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider block mb-1.5">
-                  Cryptographic SHA-256 Hash
-                </span>
-                <div className="flex items-center gap-2 p-2.5 bg-slate-950 border border-slate-800 rounded-xl font-mono text-xs text-emerald-400 break-all">
-                  <span>{selectedInquiry.sha256_hash}</span>
-                </div>
-              </div>
-
-              {selectedInquiry.raw_content && (
-                <div>
-                  <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider block mb-1.5">
-                    Raw Inbound Content
-                  </span>
-                  <div className="p-4 bg-slate-950 border border-slate-800 rounded-xl font-mono text-xs text-slate-200 whitespace-pre-wrap max-h-60 overflow-y-auto leading-relaxed">
-                    {selectedInquiry.raw_content}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="pt-4 border-t border-slate-800 mt-4 flex items-center justify-between">
-              {selectedInquiry.deal_id && (
-                <Link
-                  to={`/deals/${selectedInquiry.deal_id}`}
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-medium transition"
-                >
-                  Open Linked Deal →
-                </Link>
-              )}
+            {/* Ingestion Tabs: Raw Text vs File Upload */}
+            <div className="flex border-b border-[#E4E3DF] mb-3 text-xs font-mono">
               <button
-                onClick={() => setSelectedInquiry(null)}
-                className="ml-auto px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-medium transition"
+                type="button"
+                onClick={() => setIngestTab('text')}
+                className={`px-3 py-1.5 font-semibold transition ${
+                  ingestTab === 'text' 
+                    ? 'border-b-2 border-[#0E5E52] text-[#0E5E52]' 
+                    : 'text-[#848A92]'
+                }`}
               >
-                Close
+                Raw Text / Email
+              </button>
+              <button
+                type="button"
+                onClick={() => setIngestTab('file')}
+                className={`px-3 py-1.5 font-semibold transition ${
+                  ingestTab === 'file' 
+                    ? 'border-b-2 border-[#0E5E52] text-[#0E5E52]' 
+                    : 'text-[#848A92]'
+                }`}
+              >
+                Document Upload (PDF/Excel)
               </button>
             </div>
+
+            {modalError && (
+              <div className="mb-3 p-2 bg-red-50 border border-red-200 text-red-700 rounded text-xs">
+                {modalError}
+              </div>
+            )}
+
+            <form onSubmit={handleCreateInquiry} className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-[#1B1D1F] mb-1">
+                  Buyer Name / Organisation *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Hanseatic Textile Imports GmbH"
+                  value={buyerNameInput}
+                  onChange={(e) => setBuyerNameInput(e.target.value)}
+                  className="w-full text-xs bg-[#FAFAF8] border border-[#E4E3DF] rounded px-3 py-1.5 text-[#1B1D1F]"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-[#1B1D1F] mb-1">
+                    Sender Email
+                  </label>
+                  <input
+                    type="email"
+                    placeholder="procurement@buyer.de"
+                    value={senderEmailInput}
+                    onChange={(e) => setSenderEmailInput(e.target.value)}
+                    className="w-full text-xs font-mono bg-[#FAFAF8] border border-[#E4E3DF] rounded px-3 py-1.5 text-[#1B1D1F]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-[#1B1D1F] mb-1">
+                    Subject / RFQ Code
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. RFQ for 10,000 units Pants"
+                    value={subjectInput}
+                    onChange={(e) => setSubjectInput(e.target.value)}
+                    className="w-full text-xs font-mono bg-[#FAFAF8] border border-[#E4E3DF] rounded px-3 py-1.5 text-[#1B1D1F]"
+                  />
+                </div>
+              </div>
+
+              {ingestTab === 'text' ? (
+                <div>
+                  <label className="block text-xs font-semibold text-[#1B1D1F] mb-1">
+                    Raw Inquiry / Email Body *
+                  </label>
+                  <textarea
+                    rows={5}
+                    required
+                    placeholder="Paste buyer email, WhatsApp text, or specification table here..."
+                    value={rawTextContent}
+                    onChange={(e) => setRawTextContent(e.target.value)}
+                    className="w-full text-xs font-mono bg-[#FAFAF8] border border-[#E4E3DF] rounded p-2.5 text-[#1B1D1F]"
+                  />
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-xs font-semibold text-[#1B1D1F] mb-1">
+                    Inquiry Document (PDF, Excel, Word, CSV) *
+                  </label>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={(e) => setFile(e.target.files?.[0] || null)}
+                    accept=".pdf,.xlsx,.xls,.csv,.doc,.docx,.txt"
+                    className="w-full text-xs bg-[#FAFAF8] border border-[#E4E3DF] rounded p-2 text-[#1B1D1F]"
+                  />
+                  {file && (
+                    <div className="mt-1 text-[11px] font-mono text-[#0E5E52]">
+                      Selected: {file.name} ({(file.size / 1024).toFixed(1)} KB)
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#E4E3DF]">
+                <button
+                  type="button"
+                  onClick={() => setShowIngestModal(false)}
+                  className="px-3 py-1.5 text-xs text-[#585D63] hover:text-[#1B1D1F] font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="px-4 py-1.5 text-xs font-semibold text-white bg-[#0E5E52] hover:bg-[#0C4A40] rounded transition"
+                >
+                  {isSubmitting ? 'Ingesting to DB...' : 'Save & Ingest'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

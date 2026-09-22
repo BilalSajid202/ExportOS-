@@ -1,5 +1,5 @@
 """
-ExportOS — Executive Analytics API Endpoints (Phase 15)
+Tradeloop — Executive Analytics API Endpoints (Phase 15)
 """
 
 from typing import List

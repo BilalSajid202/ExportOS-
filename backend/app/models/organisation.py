@@ -1,5 +1,5 @@
 """
-ExportOS — Organisation Model
+Tradeloop — Organisation Model
 
 Represents a tenant (exporter organization/company).
 All domain records (Users, Deals, InventoryItems, etc.) belong to an Organisation.

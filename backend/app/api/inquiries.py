@@ -1,5 +1,5 @@
 """
-ExportOS — Inquiry Ingestion & Inbound Artifacts API
+Tradeloop — Inquiry Ingestion & Inbound Artifacts API
 
 Endpoints:
   - POST /api/inquiries/upload  - Upload RFQ documents (PDF, Excel, Word, Text)

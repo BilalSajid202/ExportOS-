@@ -1,5 +1,5 @@
 """
-ExportOS — Qdrant Vector Database & Auto-Sync Pipeline (Phase 14)
+Tradeloop — Qdrant Vector Database & Auto-Sync Pipeline (Phase 14)
 
 Provides dynamic semantic chunking, vector embedding generation, Qdrant collection
 management, automatic mutation re-indexing, and filtered hybrid vector retrieval.
@@ -36,7 +36,7 @@ from app.models.logistics import Shipment, PaymentTransaction
 settings = get_settings()
 
 VECTOR_DIM = 384
-COLLECTION_NAME = settings.QDRANT_COLLECTION_NAME or "exportos_copilot"
+COLLECTION_NAME = settings.QDRANT_COLLECTION_NAME or "tradeloop_copilot"
 
 _qdrant_client: Optional[QdrantClient] = None
 

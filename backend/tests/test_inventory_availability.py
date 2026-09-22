@@ -1,7 +1,7 @@
 """
 Unit tests for deterministic inventory availability math.
 
-Test cases from ExportOS Implementation Documentation Phase 3:
+Test cases from Tradeloop Implementation Documentation Phase 3:
   Stock=100, Reserved=20, Requested=50 → AVAILABLE, Available=80
   Stock=100, Reserved=80, Requested=50 → PARTIALLY_AVAILABLE, Available=20, Shortfall=30
 """

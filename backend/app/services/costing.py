@@ -1,5 +1,5 @@
 """
-ExportOS — Incoterm Costing & Quotation Service (Phase 8)
+Tradeloop — Incoterm Costing & Quotation Service (Phase 8)
 
 Strictly deterministic fixed-point arithmetic using Python's Decimal.
 No LLM arithmetic allowed for costing or quotations.

@@ -1,5 +1,5 @@
 """
-ExportOS — Product Catalogue API Routes
+Tradeloop — Product Catalogue API Routes
 
 Endpoints:
   POST   /products

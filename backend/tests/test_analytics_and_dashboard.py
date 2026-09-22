@@ -1,5 +1,5 @@
 """
-ExportOS — Unit & Integration Tests for Phase 15 (Executive Analytics & Dashboard)
+Tradeloop — Unit & Integration Tests for Phase 15 (Executive Analytics & Dashboard)
 """
 
 import uuid

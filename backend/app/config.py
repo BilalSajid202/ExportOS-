@@ -1,5 +1,5 @@
 """
-ExportOS — Application Configuration
+Tradeloop — Application Configuration
 
 Loads settings from environment variables / .env file using pydantic-settings.
 Crashes early on misconfiguration so problems surface at startup, not at runtime.
@@ -21,10 +21,10 @@ class Settings(BaseSettings):
     )
 
     # ── Database ──────────────────────────────────────────────
-    DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/exportos"
+    DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/tradeloop"
 
     # ── Security & Authentication ─────────────────────────────
-    SECRET_KEY: str = "exportos-dev-super-secret-key-change-in-production-12345"
+    SECRET_KEY: str = "tradeloop-dev-super-secret-key-change-in-production-12345"
     JWT_SECRET_KEY: str | None = None
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24 hours
@@ -43,7 +43,7 @@ class Settings(BaseSettings):
     QDRANT_URL: Optional[str] = None
     QDRANT_API_KEY: Optional[str] = None
     QDRANT_PATH: str = "qdrant_storage"
-    QDRANT_COLLECTION_NAME: str = "exportos_copilot"
+    QDRANT_COLLECTION_NAME: str = "tradeloop_copilot"
     DOCS_DATA_DIR: str = "data/docs"
 
     # ── Storage ───────────────────────────────────────────────
@@ -56,8 +56,8 @@ class Settings(BaseSettings):
     APP_ENV: str = "development"
 
     # ── App Info ──────────────────────────────────────────────
-    APP_NAME: str = "ExportOS"
-    APP_VERSION: str = "0.1.0"
+    APP_NAME: str = "Tradeloop"
+    APP_VERSION: str = "1.0.0"
 
     @property
     def effective_jwt_secret(self) -> str:

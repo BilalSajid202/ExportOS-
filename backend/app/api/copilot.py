@@ -1,5 +1,5 @@
 """
-ExportOS — Export Copilot & Vector Database API Endpoints (Phase 14)
+Tradeloop — Export Copilot & Vector Database API Endpoints (Phase 14)
 """
 
 from datetime import datetime, timezone

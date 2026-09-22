@@ -1,5 +1,5 @@
 """
-ExportOS — Artifact & Inbound Inquiry Model
+Tradeloop — Artifact & Inbound Inquiry Model
 
 Stores immutable records of all inbound and outbound files, raw emails, and customer artifacts.
 Maintains cryptographic SHA-256 hashes for audit trail compliance.

@@ -26,7 +26,7 @@ def upgrade() -> None:
         sa.Column("organisation_id", UUID(as_uuid=True), nullable=False),
         sa.Column("deal_id", UUID(as_uuid=True), nullable=False),
         sa.Column("artifact_id", UUID(as_uuid=True), nullable=True),
-        sa.Column("model_name", sa.String(length=100), server_default="exportos-ai-extractor-v1", nullable=False),
+        sa.Column("model_name", sa.String(length=100), server_default="tradeloop-ai-extractor-v1", nullable=False),
         sa.Column("model_version", sa.String(length=50), server_default="1.1", nullable=False),
         sa.Column("extracted_data", JSONB(astext_type=sa.Text()), nullable=False),
         sa.Column("status", sa.String(length=50), server_default="PENDING_REVIEW", nullable=False),

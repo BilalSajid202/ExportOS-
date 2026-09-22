@@ -1,5 +1,5 @@
 """
-ExportOS — Audit Log Model (Phase 4 & Phase 8)
+Tradeloop — Audit Log Model (Phase 4 & Phase 8)
 
 Records immutable audit events for state changes, quotation approvals,
 inventory actions, and compliance events.

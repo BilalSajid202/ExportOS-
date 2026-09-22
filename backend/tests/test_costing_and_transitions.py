@@ -1,5 +1,5 @@
 """
-ExportOS — Unit Tests for Incoterm Costing, Margin Math & State Machine Graph
+Tradeloop — Unit Tests for Incoterm Costing, Margin Math & State Machine Graph
 
 Tests strictly deterministic financial calculations and legal state transitions.
 """

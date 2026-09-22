@@ -1,5 +1,5 @@
 """
-ExportOS — Database Engine & Session Management
+Tradeloop — Database Engine & Session Management
 
 Async SQLAlchemy engine using asyncpg.
 Provides:

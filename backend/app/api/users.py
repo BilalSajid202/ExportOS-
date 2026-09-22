@@ -1,5 +1,5 @@
 """
-ExportOS — Users API Routes
+Tradeloop — Users API Routes
 
 Provides dedicated endpoints for user management, profiles, and team operations:
   - GET    /api/users/me          - Retrieve current authenticated user's profile

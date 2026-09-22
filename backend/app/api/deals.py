@@ -1,5 +1,5 @@
 """
-ExportOS — Deal Management, State Machine, Costing & Quotation API (Phases 3, 4, 7, 8)
+Tradeloop — Deal Management, State Machine, Costing & Quotation API (Phases 3, 4, 7, 8)
 
 Endpoints:
   - POST   /deals                           - Create manual deal

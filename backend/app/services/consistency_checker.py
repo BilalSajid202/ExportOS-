@@ -1,5 +1,5 @@
 """
-ExportOS — Cross-Document Consistency Checker Engine (Phase 11)
+Tradeloop — Cross-Document Consistency Checker Engine (Phase 11)
 
 Deterministically verifies that all documents generated for a deal revision
 (Proforma Invoice, Commercial Invoice, Packing List, Certificate of Origin)

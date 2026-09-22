@@ -1,5 +1,5 @@
 """
-ExportOS — FastAPI Auth & Tenant Dependencies
+Tradeloop — FastAPI Auth & Tenant Dependencies
 
 Provides dependencies for:
   - Extracting and verifying JWT Bearer token

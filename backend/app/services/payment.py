@@ -1,5 +1,5 @@
 """
-ExportOS — Payment & SBP FX Realization Service (Phase 13)
+Tradeloop — Payment & SBP FX Realization Service (Phase 13)
 
 Implements multi-currency payment ledger, SBP Foreign Exchange Manual Chapter XII
 120-day export realization countdown, advance payment (e-Form R) tracking,

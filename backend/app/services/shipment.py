@@ -1,5 +1,5 @@
 """
-ExportOS — Shipment & Milestone Logistics Tracking Service (Phase 13)
+Tradeloop — Shipment & Milestone Logistics Tracking Service (Phase 13)
 
 Implements multi-modal transport tracking (OCEAN_FCL, OCEAN_LCL, AIR_FREIGHT, LAND_TRUCK),
 deterministic milestone sequence generation based on Incoterms 2020, variance calculations,

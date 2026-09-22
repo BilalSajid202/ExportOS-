@@ -1,8 +1,8 @@
-# ExportOS
+# Tradeloop
 
-**AI Export Operations Copilot for Pakistani SME exporters**
+**Deterministic Export Operations Platform with AI Copilot for Pakistani SME Exporters**
 
-ExportOS is a multi-tenant operations platform that keeps one authoritative record of an export deal from first buyer contact through payment and closure. Natural language (emails, RFQs, chat pastes, uploaded files) is interpreted by an LLM. Inventory, costing, state transitions, documents, compliance, and analytics stay **deterministic** — calculated in code, never invented by the model.
+Tradeloop is a multi-tenant operations platform that keeps one authoritative record of an export deal from first buyer contact through payment and closure. Natural language (emails, RFQs, chat pastes, uploaded files) is interpreted by an LLM. Inventory, costing, state transitions, documents, compliance, and analytics stay **deterministic** — calculated in code, never invented by the model.
 
 ```text
 Buyer inquiry → AI extraction → inventory check → Incoterm costing
@@ -21,7 +21,7 @@ Export work for SMEs is usually scattered across WhatsApp, email, quotation spre
 - Documents that disagree with each other
 - Missed State Bank of Pakistan (SBP) foreign-exchange realization windows
 
-ExportOS puts those steps in one product, with role-based access, tenant isolation, and an audit trail.
+Tradeloop puts those steps in one product, with role-based access, tenant isolation, and an audit trail.
 
 ---
 
@@ -126,13 +126,13 @@ Hugging Face keys are optional. Without them, extraction and Copilot chat fall b
 ### 1. Database
 
 ```sql
-CREATE DATABASE exportos;
+CREATE DATABASE tradeloop;
 ```
 
 Default connection (override in `.env`):
 
 ```text
-postgresql+asyncpg://postgres:postgres@localhost:5432/exportos
+postgresql+asyncpg://postgres:postgres@localhost:5432/tradeloop
 ```
 
 ### 2. Backend
@@ -202,7 +202,7 @@ Copy `backend/.env.example` to `backend/.env`.
 | `HF_API_KEYS` | Optional comma-separated extra tokens |
 | `QDRANT_PATH` | Local storage directory (default `qdrant_storage`) |
 | `QDRANT_URL` / `QDRANT_API_KEY` | Use a remote Qdrant instead of local files |
-| `QDRANT_COLLECTION_NAME` | Default `exportos_copilot` |
+| `QDRANT_COLLECTION_NAME` | Default `tradeloop_copilot` |
 | `DOCS_DATA_DIR` | Knowledge markdown folder (default `data/docs`) |
 | `UPLOAD_DIR` | Inquiry artifact uploads |
 
@@ -270,7 +270,7 @@ Use the OpenAPI UI for request and response schemas.
 ## Project layout
 
 ```text
-ExportOS-/
+Tradeloop-/
 ├── backend/
 │   ├── alembic/versions/     # 0001–0008 schema revisions
 │   ├── app/

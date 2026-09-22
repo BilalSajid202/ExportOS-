@@ -1,5 +1,5 @@
 """
-ExportOS — Compliance & HS Code Classification Models
+Tradeloop — Compliance & HS Code Classification Models
 
 Enforces deterministic regulatory checks (SBP Foreign Exchange Manual,
 Pakistan Single Window, TDAP, destination customs) and tracks AI-suggested

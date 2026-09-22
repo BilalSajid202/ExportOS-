@@ -1,5 +1,5 @@
 """
-ExportOS — Inquiry & Artifact Pydantic Schemas
+Tradeloop — Inquiry & Artifact Pydantic Schemas
 """
 
 import uuid

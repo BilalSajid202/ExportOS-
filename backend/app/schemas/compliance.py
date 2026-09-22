@@ -1,5 +1,5 @@
 """
-ExportOS — Compliance & HS Code Classification Schemas
+Tradeloop — Compliance & HS Code Classification Schemas
 """
 
 import uuid
@@ -108,5 +108,5 @@ class RegulationQueryResponse(BaseModel):
     effective_date: str
     last_verified: str
     disclaimer: str = (
-        "Informational advisory only. ExportOS provides regulatory guidance based on published SBP Foreign Exchange Manual and Pakistan Customs trade notices, but does not constitute official legal or customs clearance advice."
+        "Informational advisory only. Tradeloop provides regulatory guidance based on published SBP Foreign Exchange Manual and Pakistan Customs trade notices, but does not constitute official legal or customs clearance advice."
     )

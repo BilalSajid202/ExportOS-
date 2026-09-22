@@ -1,5 +1,5 @@
 """
-ExportOS — Product Catalogue Pydantic Schemas
+Tradeloop — Product Catalogue Pydantic Schemas
 """
 
 import uuid

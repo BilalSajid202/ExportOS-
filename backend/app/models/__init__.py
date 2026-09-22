@@ -1,5 +1,5 @@
 """
-ExportOS — Domain Models
+Tradeloop — Domain Models
 
 Exports all SQLAlchemy declarative models and bases.
 """

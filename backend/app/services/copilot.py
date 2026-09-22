@@ -1,5 +1,5 @@
 """
-ExportOS — Grounded Export Copilot Service (Phase 14)
+Tradeloop — Grounded Export Copilot Service (Phase 14)
 
 Provides multi-factor 7-pillar "Ready-to-Ship" verification, Qdrant semantic vector
 RAG reasoning with zero-hallucination constraints, and human-in-the-loop correspondence drafting.
@@ -33,7 +33,7 @@ from app.schemas.copilot import (
 )
 from app.services.vector_pipeline import query_qdrant_vectors, sync_deal_to_qdrant
 
-logger = logging.getLogger("exportos.copilot")
+logger = logging.getLogger("tradeloop.copilot")
 
 
 def call_qwen_chat(
@@ -449,7 +449,7 @@ async def ask_export_copilot(
     )
 
     system_prompt = (
-        "You are the authoritative ExportOS AI Copilot, specialized in Pakistani export operations, "
+        "You are the authoritative Tradeloop AI Copilot, specialized in Pakistani export operations, "
         "State Bank of Pakistan (SBP) Foreign Exchange Manual Chapter XII, Incoterms 2020, and international trade compliance.\n\n"
         "STRICT CONSTRAINTS (FR-COP-02 & FR-COP-03):\n"
         "1. Answer ONLY using facts from the Provided Deal Context and Retrieved Knowledge Chunks.\n"
@@ -563,7 +563,7 @@ async def draft_buyer_correspondence(
     total_price_str = f"{quote.currency} {quote.total_quote_price:,.2f}" if quote else "Agreed Value"
 
     if template_type == "ORDER_CONFIRMATION":
-        subject = f"Order Confirmation — ExportOS Ref: {deal.reference} ({deal.buyer_name})"
+        subject = f"Order Confirmation — Tradeloop Ref: {deal.reference} ({deal.buyer_name})"
         body = (
             f"Dear {deal.buyer_name} Procurement Team,\n\n"
             f"We are pleased to confirm your export order (Reference: {deal.reference}).\n\n"
@@ -571,7 +571,7 @@ async def draft_buyer_correspondence(
             f"• Commercial Terms: {incoterm_str}\n"
             f"• Total Order Value: {total_price_str}\n"
             f"• Production Facility: Verified & Stock Allocated\n"
-            f"• Proforma Invoice: Available in ExportOS Portal\n\n"
+            f"• Proforma Invoice: Available in Tradeloop Portal\n\n"
             f"{f'Special Notes: {custom_notes}' if custom_notes else 'Our production and quality control team is executing according to international standards.'}\n\n"
             f"Please review and sign the attached Proforma Invoice.\n\n"
             f"Best regards,\n"

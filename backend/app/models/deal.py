@@ -1,5 +1,5 @@
 """
-ExportOS — Minimal Deal Model (Phase 3 connection)
+Tradeloop — Minimal Deal Model (Phase 3 connection)
 
 Phase 3 needs a lightweight deal so employees can:
   1. Manually create a deal with product + quantity

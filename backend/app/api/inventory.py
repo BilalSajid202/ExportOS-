@@ -1,5 +1,5 @@
 """
-ExportOS — Inventory API Routes
+Tradeloop — Inventory API Routes
 
 Endpoints:
   - GET    /inventory                           - List inventory items for organisation

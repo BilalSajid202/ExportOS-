@@ -1,5 +1,5 @@
 """
-ExportOS — Deal Pydantic Schemas (Phase 3, 4, 7, 8)
+Tradeloop — Deal Pydantic Schemas (Phase 3, 4, 7, 8)
 """
 
 import enum

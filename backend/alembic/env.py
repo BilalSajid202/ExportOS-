@@ -1,5 +1,5 @@
 """
-Alembic Environment Configuration for ExportOS
+Alembic Environment Configuration for Tradeloop
 
 Configured for async SQLAlchemy with asyncpg.
 Reads the DATABASE_URL from app.config so it's never hardcoded.

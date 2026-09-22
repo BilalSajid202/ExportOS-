@@ -1,5 +1,5 @@
 /**
- * ExportOS — API Client Wrapper
+ * Tradeloop — API Client Wrapper
  *
  * Thin fetch wrapper for /api calls.
  * Automatically injects JWT Bearer token from localStorage.
@@ -7,7 +7,7 @@
  */
 
 const BASE_URL = '/api';
-const TOKEN_KEY = 'exportos_token';
+const TOKEN_KEY = 'tradeloop_token';
 
 class ApiError extends Error {
   constructor(message, status, data) {
@@ -20,7 +20,7 @@ class ApiError extends Error {
 
 /** Get stored auth token */
 export function getStoredToken() {
-  return localStorage.getItem(TOKEN_KEY);
+  return localStorage.getItem(TOKEN_KEY) || localStorage.getItem('tradeloop_token');
 }
 
 /** Set auth token */
@@ -29,14 +29,18 @@ export function setStoredToken(token) {
     localStorage.setItem(TOKEN_KEY, token);
   } else {
     localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem('tradeloop_token');
   }
 }
 
 /** Clear auth token */
 export function clearStoredToken() {
   localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem('exportos_user');
-  localStorage.removeItem('exportos_org');
+  localStorage.removeItem('tradeloop_token');
+  localStorage.removeItem('tradeloop_user');
+  localStorage.removeItem('tradeloop_user');
+  localStorage.removeItem('tradeloop_org');
+  localStorage.removeItem('tradeloop_org');
 }
 
 /**
@@ -74,7 +78,7 @@ async function request(endpoint, options = {}) {
     // Handle 401 Unauthorized globally
     if (response.status === 401 && !endpoint.includes('/auth/login')) {
       clearStoredToken();
-      window.dispatchEvent(new CustomEvent('exportos:unauthorized'));
+      window.dispatchEvent(new CustomEvent('tradeloop:unauthorized'));
     }
 
     const message =
@@ -94,26 +98,28 @@ async function request(endpoint, options = {}) {
   return response.json();
 }
 
-/** Convenience methods */
-const api = {
+/** API convenience methods */
+export const api = {
   get: (endpoint, options) => request(endpoint, { method: 'GET', ...options }),
-
-  post: (endpoint, data, options) =>
+  post: (endpoint, body, options) =>
     request(endpoint, {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: body ? JSON.stringify(body) : undefined,
       ...options,
     }),
-
-  put: (endpoint, data, options) =>
+  put: (endpoint, body, options) =>
     request(endpoint, {
       method: 'PUT',
-      body: JSON.stringify(data),
+      body: body ? JSON.stringify(body) : undefined,
       ...options,
     }),
-
+  patch: (endpoint, body, options) =>
+    request(endpoint, {
+      method: 'PATCH',
+      body: body ? JSON.stringify(body) : undefined,
+      ...options,
+    }),
   delete: (endpoint, options) => request(endpoint, { method: 'DELETE', ...options }),
 };
 
-export { api, ApiError };
 export default api;

@@ -1,5 +1,5 @@
 """
-ExportOS — Shipment Logistics & Payment Reconciliation Tests (Phase 13)
+Tradeloop — Shipment Logistics & Payment Reconciliation Tests (Phase 13)
 
 Tests multi-modal transport milestone sequences, schedule variance math,
 payment ledger accounting, SBP 120-day realization countdown, and receivables aging.

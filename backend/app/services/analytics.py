@@ -1,5 +1,5 @@
 """
-ExportOS — Executive Analytics & Profitability Engine (Phase 15)
+Tradeloop — Executive Analytics & Profitability Engine (Phase 15)
 
 Deterministic calculations for financial KPI summaries, Incoterm/SKU profitability,
 SBP Chapter XII FX realization exposure, and pipeline velocity.

@@ -1,5 +1,5 @@
 """
-ExportOS — Authentication API Routes
+Tradeloop — Authentication API Routes
 
 Endpoints:
   - POST /api/auth/register: Onboard company and create initial Admin user

@@ -1,5 +1,5 @@
 """
-ExportOS — Inventory Models
+Tradeloop — Inventory Models
 
 Deterministic stock tracking:
   - InventoryItem: current / reserved quantities per product

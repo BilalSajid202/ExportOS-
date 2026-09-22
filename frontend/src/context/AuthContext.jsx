@@ -5,11 +5,11 @@ const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
-    const saved = localStorage.getItem('exportos_user');
+    const saved = localStorage.getItem('tradeloop_user') || localStorage.getItem('tradeloop_user');
     return saved ? JSON.parse(saved) : null;
   });
   const [organisation, setOrganisation] = useState(() => {
-    const saved = localStorage.getItem('exportos_org');
+    const saved = localStorage.getItem('tradeloop_org') || localStorage.getItem('tradeloop_org');
     return saved ? JSON.parse(saved) : null;
   });
   const [token, setToken] = useState(() => getStoredToken());
@@ -30,8 +30,8 @@ export function AuthProvider({ children }) {
       const data = await api.get('/auth/me');
       setUser(data.user);
       setOrganisation(data.organisation);
-      localStorage.setItem('exportos_user', JSON.stringify(data.user));
-      localStorage.setItem('exportos_org', JSON.stringify(data.organisation));
+      localStorage.setItem('tradeloop_user', JSON.stringify(data.user));
+      localStorage.setItem('tradeloop_org', JSON.stringify(data.organisation));
     } catch (err) {
       console.error('Failed to load active user session:', err);
       clearStoredToken();
@@ -53,9 +53,9 @@ export function AuthProvider({ children }) {
       setToken(null);
     };
 
-    window.addEventListener('exportos:unauthorized', handleUnauthorized);
+    window.addEventListener('tradeloop:unauthorized', handleUnauthorized);
     return () => {
-      window.removeEventListener('exportos:unauthorized', handleUnauthorized);
+      window.removeEventListener('tradeloop:unauthorized', handleUnauthorized);
     };
   }, [fetchCurrentUser]);
 
@@ -66,8 +66,8 @@ export function AuthProvider({ children }) {
     setToken(data.access_token);
     setUser(data.user);
     setOrganisation(data.organisation);
-    localStorage.setItem('exportos_user', JSON.stringify(data.user));
-    localStorage.setItem('exportos_org', JSON.stringify(data.organisation));
+    localStorage.setItem('tradeloop_user', JSON.stringify(data.user));
+    localStorage.setItem('tradeloop_org', JSON.stringify(data.organisation));
     return data;
   };
 
@@ -78,8 +78,8 @@ export function AuthProvider({ children }) {
     setToken(data.access_token);
     setUser(data.user);
     setOrganisation(data.organisation);
-    localStorage.setItem('exportos_user', JSON.stringify(data.user));
-    localStorage.setItem('exportos_org', JSON.stringify(data.organisation));
+    localStorage.setItem('tradeloop_user', JSON.stringify(data.user));
+    localStorage.setItem('tradeloop_org', JSON.stringify(data.organisation));
     return data;
   };
 
@@ -95,9 +95,9 @@ export function AuthProvider({ children }) {
     user,
     organisation,
     token,
-    isAuthenticated: !!token && !!user,
-    isAdmin: user?.role === 'ADMIN',
     isLoading,
+    isAuthenticated: Boolean(token && user),
+    isAdmin: user?.role === 'ADMIN',
     login,
     register,
     logout,

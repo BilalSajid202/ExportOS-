@@ -1,5 +1,5 @@
 """
-ExportOS — Unit & Integration Tests for Export Copilot & Qdrant RAG (Phase 14)
+Tradeloop — Unit & Integration Tests for Export Copilot & Qdrant RAG (Phase 14)
 """
 
 from decimal import Decimal

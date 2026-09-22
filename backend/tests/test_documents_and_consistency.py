@@ -1,5 +1,5 @@
 """
-ExportOS — Unit & Service Tests for Document Generation & Consistency Checker (Phases 10 & 11)
+Tradeloop — Unit & Service Tests for Document Generation & Consistency Checker (Phases 10 & 11)
 """
 
 from decimal import Decimal

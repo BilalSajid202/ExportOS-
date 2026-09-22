@@ -1,5 +1,5 @@
 """
-ExportOS — AI Extraction Engine with Hugging Face Qwen & Rotating API Keys
+Tradeloop — AI Extraction Engine with Hugging Face Qwen & Rotating API Keys
 
 Features:
   - Hugging Face Qwen model integration (Qwen/Qwen2.5-72B-Instruct)
@@ -19,7 +19,7 @@ import httpx
 from app.config import get_settings
 from app.schemas.extraction import ExtractedFieldItem
 
-logger = logging.getLogger("exportos.ai_extractor")
+logger = logging.getLogger("tradeloop.ai_extractor")
 
 VALID_INCOTERMS = ["EXW", "FCA", "FOB", "CFR", "CIF", "CPT", "CIP", "DAP", "DDP"]
 VALID_UOMS = ["PCS", "PAIR", "PAIRS", "SET", "SETS", "KG", "KGS", "DOZEN", "DOZENS", "MTR", "METERS"]
@@ -66,7 +66,7 @@ class AIExtractionService:
     Interpretation engine for export RFQs and buyer inquiries.
     """
 
-    SYSTEM_PROMPT = """You are ExportOS AI, an expert international trade and export operations assistant.
+    SYSTEM_PROMPT = """You are Tradeloop AI, an expert international trade and export operations assistant.
 Extract structured commercial deal terms from the buyer's inquiry message.
 
 You must respond ONLY with a valid JSON object matching this exact schema:

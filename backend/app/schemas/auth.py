@@ -1,5 +1,5 @@
 """
-ExportOS — Authentication & Organisation Pydantic Schemas
+Tradeloop — Authentication & Organisation Pydantic Schemas
 """
 
 import uuid

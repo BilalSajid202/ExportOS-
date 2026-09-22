@@ -1,5 +1,5 @@
 """
-ExportOS — SQLAlchemy Base & Common Model Mixin
+Tradeloop — SQLAlchemy Base & Common Model Mixin
 
 Every domain entity (Organisation, User, Deal, InventoryItem, etc.)
 inherits from BaseModel to get:
@@ -17,7 +17,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
 class Base(DeclarativeBase):
-    """SQLAlchemy declarative base for all ExportOS models."""
+    """SQLAlchemy declarative base for all Tradeloop models."""
     pass
 
 

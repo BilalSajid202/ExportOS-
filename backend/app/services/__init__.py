@@ -1,1 +1,1 @@
-"""ExportOS application services — deterministic business logic."""
+"""Tradeloop application services — deterministic business logic."""

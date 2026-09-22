@@ -1,5 +1,5 @@
 """
-ExportOS — Multi-Document Generation & Consistency Checker API (Phases 10 & 11)
+Tradeloop — Multi-Document Generation & Consistency Checker API (Phases 10 & 11)
 
 Endpoints:
   - POST /deals/{deal_id}/documents/generate       - Generate complete export document set (PI, CI, PL, CoO)
