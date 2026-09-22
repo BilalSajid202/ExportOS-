@@ -18,6 +18,7 @@ from app.api.inquiries import router as inquiries_router
 from app.api.extraction import router as extraction_router
 from app.api.documents import router as documents_router
 from app.api.compliance import router as compliance_router
+from app.api.shipment_payment import router as shipment_payment_router
 
 api_router = APIRouter()
 
@@ -49,3 +50,17 @@ api_router.include_router(documents_router)
 
 # ── Phase 12 (Compliance Engine, SBP Regulations & HS Advisor)
 api_router.include_router(compliance_router)
+
+# ── Phase 13 (Shipment Logistics & SBP Payment Reconciliation)
+api_router.include_router(shipment_payment_router)
+
+# ── Phase 14 (Export Copilot & Qdrant Vector RAG) ────────────
+from app.api.copilot import router as copilot_router
+api_router.include_router(copilot_router)
+
+# ── Phase 15 (Executive Analytics & Profitability) ────────────
+from app.api.analytics import router as analytics_router
+api_router.include_router(analytics_router)
+
+
+

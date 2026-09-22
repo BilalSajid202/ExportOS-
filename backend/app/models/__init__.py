@@ -40,6 +40,18 @@ from app.models.compliance import (
     HSCodeClassification,
     HSClassificationStatus,
 )
+from app.models.logistics import (
+    Shipment,
+    ShipmentMilestone,
+    PaymentTransaction,
+    TransportMode,
+    ShipmentStatus,
+    FreightTerms,
+    MilestoneType,
+    MilestoneStatus,
+    PaymentType,
+    PaymentStatus,
+)
 
 __all__ = [
     "Base",
@@ -77,4 +89,15 @@ __all__ = [
     "ComplianceStatus",
     "HSCodeClassification",
     "HSClassificationStatus",
+    "Shipment",
+    "ShipmentMilestone",
+    "PaymentTransaction",
+    "TransportMode",
+    "ShipmentStatus",
+    "FreightTerms",
+    "MilestoneType",
+    "MilestoneStatus",
+    "PaymentType",
+    "PaymentStatus",
 ]
+

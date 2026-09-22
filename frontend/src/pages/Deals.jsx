@@ -94,6 +94,45 @@ export default function Deals() {
   const [isRegLoading, setIsRegLoading] = useState(false);
   const [complianceFilter, setComplianceFilter] = useState('ALL');
 
+  // Phase 13 Shipment & Payment State
+  const [shipments, setShipments] = useState([]);
+  const [isShipmentsLoading, setIsShipmentsLoading] = useState(false);
+  const [paymentSummary, setPaymentSummary] = useState(null);
+  const [isPaymentLoading, setIsPaymentLoading] = useState(false);
+  const [isShipmentModalOpen, setIsShipmentModalOpen] = useState(false);
+  const [isShipmentSubmitting, setIsShipmentSubmitting] = useState(false);
+  const [shipmentForm, setShipmentForm] = useState({
+    transport_mode: 'OCEAN_FCL',
+    freight_terms: 'FREIGHT_PREPAID',
+    carrier_name: 'Maersk Line',
+    vessel_or_flight: 'Maersk Karachi',
+    voyage_number: 'V.2026E',
+    booking_reference: '',
+    transport_doc_number: '',
+    port_of_loading: 'Port Qasim, Karachi',
+    port_of_discharge: '',
+    packages_count: 500,
+    gross_weight_kg: 4500,
+    volume_cbm: 28.5,
+    container_no: 'MSCU7654321',
+    seal_no: 'PK-9921',
+  });
+  const [selectedMilestone, setSelectedMilestone] = useState(null);
+  const [milestoneForm, setMilestoneForm] = useState({ status: 'COMPLETED', actual_date: '', location: '', description: '' });
+  const [isMilestoneUpdating, setIsMilestoneUpdating] = useState(false);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [isPaymentSubmitting, setIsPaymentSubmitting] = useState(false);
+  const [paymentForm, setPaymentForm] = useState({
+    payment_type: 'ADVANCE',
+    amount: '',
+    currency: 'USD',
+    realized_exchange_rate: '278.50',
+    bank_reference: '',
+    bank_name: 'Habib Bank Limited (HBL)',
+    bank_charges: '0.00',
+    notes: '',
+  });
+
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [actionSuccess, setActionSuccess] = useState('');
@@ -208,6 +247,22 @@ export default function Deals() {
         setComplianceSummary(comp);
       } catch {
         setComplianceSummary(null);
+      }
+
+      // Try loading shipments
+      try {
+        const shps = await api.get(`/shipments/deals/${id}`);
+        setShipments(shps || []);
+      } catch {
+        setShipments([]);
+      }
+
+      // Try loading payment summary
+      try {
+        const pay = await api.get(`/payments/deals/${id}`);
+        setPaymentSummary(pay);
+      } catch {
+        setPaymentSummary(null);
       }
     } catch (err) {
       setError(err.message || 'Failed to load deal');
@@ -514,6 +569,105 @@ export default function Deals() {
     }
   };
 
+  // ── Phase 13 Shipment & Payment Action Handlers ──────────────
+  const handleCreateShipment = async (e) => {
+    e.preventDefault();
+    if (!deal) return;
+    setIsShipmentSubmitting(true);
+    try {
+      const containerPayload = shipmentForm.container_no
+        ? [{ container_no: shipmentForm.container_no, seal_no: shipmentForm.seal_no || 'PK-SEAL', size_type: '40HC' }]
+        : [];
+      
+      const created = await api.post(`/shipments/deals/${deal.id}`, {
+        transport_mode: shipmentForm.transport_mode,
+        freight_terms: shipmentForm.freight_terms,
+        carrier_name: shipmentForm.carrier_name,
+        vessel_or_flight: shipmentForm.vessel_or_flight,
+        voyage_number: shipmentForm.voyage_number,
+        booking_reference: shipmentForm.booking_reference || undefined,
+        transport_doc_number: shipmentForm.transport_doc_number || undefined,
+        port_of_loading: shipmentForm.port_of_loading,
+        port_of_discharge: shipmentForm.port_of_discharge || undefined,
+        packages_count: Number(shipmentForm.packages_count) || 500,
+        gross_weight_kg: Number(shipmentForm.gross_weight_kg) || 4500,
+        volume_cbm: Number(shipmentForm.volume_cbm) || 28.5,
+        container_numbers: containerPayload,
+      });
+
+      setIsShipmentModalOpen(false);
+      setActionSuccess(`Created shipment ${created.tracking_number} with milestone timeline!`);
+      const updated = await api.get(`/shipments/deals/${deal.id}`);
+      setShipments(updated || []);
+    } catch (err) {
+      setError(err.message || 'Failed to create shipment');
+    } finally {
+      setIsShipmentSubmitting(false);
+    }
+  };
+
+  const handleUpdateMilestone = async (e) => {
+    e.preventDefault();
+    if (!deal || !selectedMilestone) return;
+    setIsMilestoneUpdating(true);
+    try {
+      await api.put(`/shipments/${selectedMilestone.shipment_id}/milestones/${selectedMilestone.id}`, {
+        status: milestoneForm.status,
+        actual_date: milestoneForm.actual_date ? new Date(milestoneForm.actual_date).toISOString() : undefined,
+        location: milestoneForm.location || undefined,
+        description: milestoneForm.description || undefined,
+      });
+
+      setSelectedMilestone(null);
+      setActionSuccess(`Updated milestone: ${selectedMilestone.title}`);
+      const updated = await api.get(`/shipments/deals/${deal.id}`);
+      setShipments(updated || []);
+      const pay = await api.get(`/payments/deals/${deal.id}`);
+      setPaymentSummary(pay);
+    } catch (err) {
+      setError(err.message || 'Failed to update milestone');
+    } finally {
+      setIsMilestoneUpdating(false);
+    }
+  };
+
+  const handleRecordPayment = async (e) => {
+    e.preventDefault();
+    if (!deal) return;
+    setIsPaymentSubmitting(true);
+    try {
+      const created = await api.post(`/payments/deals/${deal.id}`, {
+        payment_type: paymentForm.payment_type,
+        amount: Number(paymentForm.amount),
+        currency: paymentForm.currency || 'USD',
+        realized_exchange_rate: Number(paymentForm.realized_exchange_rate) || 278.50,
+        bank_reference: paymentForm.bank_reference || undefined,
+        bank_name: paymentForm.bank_name || undefined,
+        bank_charges: Number(paymentForm.bank_charges) || 0.00,
+        notes: paymentForm.notes || undefined,
+      });
+
+      setIsPaymentModalOpen(false);
+      setPaymentForm({
+        payment_type: 'ADVANCE',
+        amount: '',
+        currency: 'USD',
+        realized_exchange_rate: '278.50',
+        bank_reference: '',
+        bank_name: 'Habib Bank Limited (HBL)',
+        bank_charges: '0.00',
+        notes: '',
+      });
+      setActionSuccess(`Payment of ${created.currency} ${created.amount} recorded! SBP ledger updated.`);
+      const pay = await api.get(`/payments/deals/${deal.id}`);
+      setPaymentSummary(pay);
+    } catch (err) {
+      setError(err.message || 'Failed to record payment');
+    } finally {
+      setIsPaymentSubmitting(false);
+    }
+  };
+
   const openCreate = async () => {
     const prods = await api.get('/products');
     setProducts(prods);
@@ -786,6 +940,38 @@ export default function Deals() {
                     : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
                 }`}>
                   {complianceSummary.mandatory_completed}/{complianceSummary.mandatory_total}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => setActiveTab('shipment')}
+              className={`pb-3 px-1 transition relative whitespace-nowrap flex items-center gap-1.5 ${
+                activeTab === 'shipment' ? 'text-indigo-400 border-b-2 border-indigo-500' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <span>🚢</span> Shipment & Logistics ({shipments.length})
+              {shipments.some((s) => s.status === 'IN_TRANSIT') && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 animate-pulse">
+                  In Transit
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => setActiveTab('payment')}
+              className={`pb-3 px-1 transition relative whitespace-nowrap flex items-center gap-1.5 ${
+                activeTab === 'payment' ? 'text-indigo-400 border-b-2 border-indigo-500' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <span>💰</span> Payment & SBP Realization
+              {paymentSummary && (
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                  paymentSummary.payment_status === 'FULLY_PAID'
+                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                    : paymentSummary.is_sbp_at_risk
+                    ? 'bg-rose-500/10 text-rose-400 border-rose-500/20 animate-pulse'
+                    : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                }`}>
+                  {paymentSummary.is_sbp_at_risk ? '⚠️ SBP Risk' : paymentSummary.payment_status.replace(/_/g, ' ')}
                 </span>
               )}
             </button>
@@ -1666,7 +1852,404 @@ export default function Deals() {
             </div>
           )}
 
-          {/* ── TAB 5: Audit Trail ────────────────────────────────────── */}
+          {/* ── TAB 5: Shipment & Logistics (Phase 13) ─────────────────── */}
+          {activeTab === 'shipment' && (
+            <div className="space-y-6">
+              {/* Shipment Header & Actions */}
+              <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 shadow-2xl backdrop-blur-xl">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-800">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl">🚢</span>
+                      <h2 className="text-xl font-bold text-white tracking-tight">Export Shipment & Multi-Modal Logistics</h2>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-1">
+                      Real-time milestone tracking, WeBOC customs out-of-charge, vessel departures, and schedule variance
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      setShipmentForm({
+                        transport_mode: 'OCEAN_FCL',
+                        freight_terms: 'FREIGHT_PREPAID',
+                        carrier_name: 'Maersk Line',
+                        vessel_or_flight: 'Maersk Karachi',
+                        voyage_number: 'V.2026E',
+                        booking_reference: '',
+                        transport_doc_number: '',
+                        port_of_loading: 'Port Qasim, Karachi',
+                        port_of_discharge: costing?.quote?.incoterm_place || 'Hamburg Port, Germany',
+                        packages_count: 500,
+                        gross_weight_kg: 4500,
+                        volume_cbm: 28.5,
+                        container_no: 'MSCU7654321',
+                        seal_no: 'PK-9921',
+                      });
+                      setIsShipmentModalOpen(true);
+                    }}
+                    className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-indigo-600/20 transition flex items-center gap-2 self-start sm:self-auto"
+                  >
+                    <span>+</span> New Shipment Booking
+                  </button>
+                </div>
+
+                {/* Shipments List */}
+                {shipments.length === 0 ? (
+                  <div className="py-12 text-center text-slate-500 text-xs space-y-3">
+                    <span className="text-3xl block">📦</span>
+                    <p>No export shipments booked for this deal yet.</p>
+                    <p className="text-slate-400">
+                      Click "+ New Shipment Booking" to generate an Incoterm-aligned milestone schedule.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-6 pt-6">
+                    {shipments.map((shp) => (
+                      <div key={shp.id} className="p-6 bg-slate-950/70 border border-slate-800 rounded-2xl space-y-6">
+                        {/* Shipment Meta Card */}
+                        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-800/80">
+                          <div>
+                            <div className="flex flex-wrap items-center gap-2.5">
+                              <span className="font-mono text-sm font-extrabold text-indigo-400 bg-indigo-500/10 px-3 py-1 rounded-xl border border-indigo-500/20">
+                                {shp.tracking_number}
+                              </span>
+                              <span className="px-2.5 py-0.5 rounded text-xs font-bold bg-slate-800 text-slate-200 border border-slate-700">
+                                {shp.transport_mode.replace(/_/g, ' ')}
+                              </span>
+                              <span
+                                className={`px-3 py-0.5 rounded-full text-xs font-bold border ${
+                                  shp.status === 'DELIVERED'
+                                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                    : shp.status === 'IN_TRANSIT'
+                                    ? 'bg-blue-500/10 text-blue-400 border-blue-500/20 animate-pulse'
+                                    : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                                }`}
+                              >
+                                {shp.status.replace(/_/g, ' ')}
+                              </span>
+                            </div>
+
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-3 text-xs text-slate-300">
+                              <div>
+                                <span className="text-slate-400 block text-[10px] uppercase">Carrier / Vessel</span>
+                                <strong className="text-white">{shp.carrier_name}</strong> • {shp.vessel_or_flight}
+                              </div>
+                              <div>
+                                <span className="text-slate-400 block text-[10px] uppercase">B/L or AWB No.</span>
+                                <span className="font-mono text-indigo-300 font-semibold">{shp.transport_doc_number || 'Pending Issue'}</span>
+                              </div>
+                              <div>
+                                <span className="text-slate-400 block text-[10px] uppercase">Port of Loading</span>
+                                <span>{shp.port_of_loading || 'Karachi Port'}</span>
+                              </div>
+                              <div>
+                                <span className="text-slate-400 block text-[10px] uppercase">Port of Discharge</span>
+                                <span>{shp.port_of_discharge || 'Destination Port'}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="text-right text-xs text-slate-400 space-y-1">
+                            <div>ETD: <strong className="text-slate-200">{shp.etd ? new Date(shp.etd).toLocaleDateString() : 'TBD'}</strong></div>
+                            <div>ETA: <strong className="text-slate-200">{shp.eta ? new Date(shp.eta).toLocaleDateString() : 'TBD'}</strong></div>
+                            <div className="text-[11px] text-slate-400">
+                              {shp.packages_count} {shp.package_type} • {Number(shp.gross_weight_kg || 0).toLocaleString()} kg • {shp.volume_cbm} CBM
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Containers Display */}
+                        {shp.container_numbers?.length > 0 && (
+                          <div className="flex flex-wrap gap-2 pt-1">
+                            <span className="text-xs font-semibold text-slate-400 self-center mr-1">📦 Containers:</span>
+                            {shp.container_numbers.map((cnt, i) => (
+                              <div key={i} className="px-3 py-1 bg-slate-900 border border-slate-700/80 rounded-xl text-xs font-mono flex items-center gap-2">
+                                <span className="text-indigo-300 font-bold">{cnt.container_no}</span>
+                                <span className="text-slate-400 text-[11px]">Seal: {cnt.seal_no || 'N/A'}</span>
+                                <span className="px-1.5 py-0.2 rounded bg-slate-800 text-[10px] text-slate-300">{cnt.size_type || '40HC'}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Interactive Milestone Timeline */}
+                        <div className="space-y-3 pt-2">
+                          <div className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center justify-between">
+                            <span>Milestone Logistics Progression & Variance Tracking</span>
+                            <span className="text-[11px] font-normal text-slate-400">
+                              {shp.milestones.filter((m) => m.status === 'COMPLETED').length} of {shp.milestones.length} Completed
+                            </span>
+                          </div>
+
+                          <div className="space-y-2">
+                            {shp.milestones.map((m, idx) => {
+                              const isCompleted = m.status === 'COMPLETED';
+                              const isDelayed = m.variance_days > 0;
+                              return (
+                                <div
+                                  key={m.id}
+                                  className={`p-3.5 rounded-2xl border transition flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                                    isCompleted
+                                      ? 'bg-slate-900/60 border-slate-800/80'
+                                      : 'bg-slate-900/90 border-indigo-500/20'
+                                  }`}
+                                >
+                                  <div className="flex items-start gap-3">
+                                    <div
+                                      className={`w-7 h-7 rounded-xl flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5 ${
+                                        isCompleted
+                                          ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                          : m.status === 'IN_PROGRESS'
+                                          ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30 animate-pulse'
+                                          : 'bg-slate-800 text-slate-400 border border-slate-700'
+                                      }`}
+                                    >
+                                      {isCompleted ? '✓' : idx + 1}
+                                    </div>
+
+                                    <div>
+                                      <div className="text-xs font-bold text-white flex items-center gap-2">
+                                        <span>{m.title}</span>
+                                        {isDelayed && (
+                                          <span className="text-[10px] font-mono px-2 py-0.2 rounded bg-rose-500/10 text-rose-400 border border-rose-500/20 font-bold">
+                                            +{m.variance_days}d Delay
+                                          </span>
+                                        )}
+                                      </div>
+                                      <p className="text-[11px] text-slate-400 mt-0.5">{m.description}</p>
+                                      <div className="flex flex-wrap items-center gap-3 text-[10px] text-slate-400 mt-1 font-mono">
+                                        <span>📍 {m.location || 'Karachi'}</span>
+                                        <span>Planned: {new Date(m.planned_date).toLocaleDateString()}</span>
+                                        {m.actual_date && (
+                                          <span className="text-emerald-400">
+                                            Actual: {new Date(m.actual_date).toLocaleDateString()}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center gap-2 self-end sm:self-center">
+                                    <span
+                                      className={`px-2.5 py-1 rounded-xl text-[10px] font-bold border ${
+                                        isCompleted
+                                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                          : m.status === 'IN_PROGRESS'
+                                          ? 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                                          : 'bg-slate-800 text-slate-400 border-slate-700'
+                                      }`}
+                                    >
+                                      {m.status}
+                                    </span>
+
+                                    <button
+                                      onClick={() => {
+                                        setSelectedMilestone(m);
+                                        setMilestoneForm({
+                                          status: m.status === 'PENDING' ? 'COMPLETED' : m.status,
+                                          actual_date: m.actual_date ? m.actual_date.slice(0, 10) : new Date().toISOString().slice(0, 10),
+                                          location: m.location || '',
+                                          description: m.description || '',
+                                        });
+                                      }}
+                                      className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-[11px] font-semibold transition"
+                                    >
+                                      Update
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ── TAB 6: Payment & SBP Realization (Phase 13) ────────────── */}
+          {activeTab === 'payment' && (
+            <div className="space-y-6">
+              {/* SBP 120-Day Realization Statutory Countdown Card */}
+              <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 shadow-2xl backdrop-blur-xl space-y-6">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-6 border-b border-slate-800">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl">🏛️</span>
+                      <h2 className="text-xl font-bold text-white tracking-tight">SBP 120-Day Foreign Exchange Realization Clock</h2>
+                      {paymentSummary && (
+                        <span
+                          className={`px-3 py-1 rounded-full text-xs font-bold border ${
+                            paymentSummary.payment_status === 'FULLY_PAID'
+                              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                              : paymentSummary.is_sbp_overdue
+                              ? 'bg-rose-500/10 text-rose-400 border-rose-500/20 animate-pulse'
+                              : paymentSummary.is_sbp_at_risk
+                              ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                              : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                          }`}
+                        >
+                          {paymentSummary.payment_status === 'FULLY_PAID'
+                            ? '✓ 100% Realized'
+                            : paymentSummary.is_sbp_overdue
+                            ? '🚨 SBP Statutory Overdue'
+                            : paymentSummary.is_sbp_at_risk
+                            ? '⚠️ 30-Day SBP Risk Alert'
+                            : '✓ SBP Compliant'}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-400">
+                      State Bank of Pakistan (SBP) Foreign Exchange Manual Chapter XII Para 6 & FE Circular No. 04 of 2020
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      setPaymentForm({
+                        payment_type: paymentSummary?.advance_amount_received === 0 ? 'ADVANCE' : 'BANK_TRANSFER',
+                        amount: paymentSummary?.outstanding_balance > 0 ? String(paymentSummary.outstanding_balance) : '10000',
+                        currency: paymentSummary?.invoice_currency || 'USD',
+                        realized_exchange_rate: '278.50',
+                        bank_reference: '',
+                        bank_name: 'Habib Bank Limited (HBL)',
+                        bank_charges: '0.00',
+                        notes: '',
+                      });
+                      setIsPaymentModalOpen(true);
+                    }}
+                    className="px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-emerald-600/20 transition flex items-center gap-2 self-start lg:self-auto"
+                  >
+                    <span>+</span> Record Payment Receipt
+                  </button>
+                </div>
+
+                {/* Financial Ledger Metric Cards */}
+                {paymentSummary && (
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="p-4 bg-slate-950/60 border border-slate-800/80 rounded-2xl">
+                      <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Commercial Invoice Total</div>
+                      <div className="text-2xl font-extrabold text-white mt-1">
+                        {formatMoney(paymentSummary.total_invoice_amount, paymentSummary.invoice_currency)}
+                      </div>
+                      <div className="text-[10px] text-slate-500 mt-0.5">Authoritative deal invoice</div>
+                    </div>
+
+                    <div className="p-4 bg-slate-950/60 border border-slate-800/80 rounded-2xl">
+                      <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Total Realized (Paid)</div>
+                      <div className="text-2xl font-extrabold text-emerald-400 mt-1">
+                        {formatMoney(paymentSummary.total_paid_amount, paymentSummary.invoice_currency)}
+                      </div>
+                      <div className="text-[10px] text-slate-500 mt-0.5">
+                        Advance: {formatMoney(paymentSummary.advance_amount_received, paymentSummary.invoice_currency)}
+                      </div>
+                    </div>
+
+                    <div className="p-4 bg-slate-950/60 border border-slate-800/80 rounded-2xl">
+                      <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Outstanding Balance</div>
+                      <div className="text-2xl font-extrabold text-rose-400 mt-1">
+                        {formatMoney(paymentSummary.outstanding_balance, paymentSummary.invoice_currency)}
+                      </div>
+                      <div className="text-[10px] text-slate-500 mt-0.5">
+                        Status: <strong className="text-slate-300">{paymentSummary.payment_status}</strong>
+                      </div>
+                    </div>
+
+                    <div className="p-4 bg-slate-950/60 border border-slate-800/80 rounded-2xl">
+                      <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">SBP Realization Deadline</div>
+                      <div className="text-xl font-extrabold text-indigo-300 mt-1">
+                        {paymentSummary.sbp_days_remaining} Days Left
+                      </div>
+                      <div className="text-[10px] text-slate-500 mt-0.5">
+                        Due by {paymentSummary.sbp_realization_deadline ? new Date(paymentSummary.sbp_realization_deadline).toLocaleDateString() : 'N/A'}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* SBP Legal Citation Footer Alert */}
+                <div className="p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl text-xs text-indigo-300 flex items-start gap-3">
+                  <span className="text-lg mt-0.5">📜</span>
+                  <div className="space-y-1">
+                    <span className="font-bold block">Pakistani Regulatory Requirement (SBP Chapter XII):</span>
+                    <p className="text-[11px] text-indigo-200/80 leading-relaxed font-sans">
+                      All export proceeds must be repatriated and credited to the exporter's foreign currency or PKR account with an Authorized Dealer bank within 120 days of shipment date. Failure to reconcile the corresponding e-Form E constitutes an offense under the Foreign Exchange Regulation Act, 1947.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Payment Receipts Ledger Table */}
+              <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                  <div>
+                    <h3 className="text-base font-bold text-white">Payment Transactions & Bank Receipts</h3>
+                    <p className="text-xs text-slate-400">
+                      Audit ledger of advance payments, LC drawings, SWIFT MT103 remittances, and realized FX rate conversions
+                    </p>
+                  </div>
+                </div>
+
+                {(!paymentSummary || paymentSummary.transactions.length === 0) ? (
+                  <div className="py-10 text-center text-slate-500 text-xs">
+                    No payment receipts logged yet. Click "+ Record Payment Receipt" to record remittances.
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {paymentSummary.transactions.map((tx) => (
+                      <div
+                        key={tx.id}
+                        className="p-4 bg-slate-950/70 border border-slate-800 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                      >
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="px-2.5 py-0.5 rounded text-[10px] font-mono font-bold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+                              {tx.payment_type}
+                            </span>
+                            <span className="text-sm font-extrabold text-white">
+                              {formatMoney(tx.amount, tx.currency)}
+                            </span>
+                            {tx.settlement_amount_pkr && (
+                              <span className="text-xs font-mono text-slate-400">
+                                (≈ PKR {Number(tx.settlement_amount_pkr).toLocaleString()} @ {tx.realized_exchange_rate})
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-4 text-xs text-slate-400 pt-0.5">
+                            {tx.bank_name && <span>🏛️ {tx.bank_name}</span>}
+                            {tx.bank_reference && <span className="font-mono text-indigo-300">Ref: {tx.bank_reference}</span>}
+                            <span>📅 {new Date(tx.payment_date).toLocaleDateString()}</span>
+                          </div>
+                          {tx.notes && <p className="text-xs text-slate-300 italic pt-1">Notes: "{tx.notes}"</p>}
+                        </div>
+
+                        <div className="text-right text-xs">
+                          <div className="text-slate-400">Realized FX Gain/Loss:</div>
+                          <div
+                            className={`font-mono font-bold text-sm ${
+                              Number(tx.realized_fx_gain_loss || 0) >= 0
+                                ? 'text-emerald-400'
+                                : 'text-rose-400'
+                            }`}
+                          >
+                            {Number(tx.realized_fx_gain_loss || 0) >= 0 ? '+' : ''}
+                            PKR {Number(tx.realized_fx_gain_loss || 0).toLocaleString()}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ── TAB 7: Audit Trail ────────────────────────────────────── */}
           {activeTab === 'audit' && (
             <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 space-y-4">
               <h2 className="text-base font-bold text-white">Immutable Audit Trail</h2>
@@ -2107,6 +2690,366 @@ export default function Deals() {
                   className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-indigo-600/20 transition disabled:opacity-50"
                 >
                   {isCheckUpdating ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: New Shipment Booking ────────────────────────────── */}
+      {isShipmentModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <h3 className="text-base font-bold text-white">Create Export Shipment Booking</h3>
+              <button onClick={() => setIsShipmentModalOpen(false)} className="text-slate-400 hover:text-white">✕</button>
+            </div>
+
+            <form onSubmit={handleCreateShipment} className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1">Transport Mode</label>
+                  <select
+                    value={shipmentForm.transport_mode}
+                    onChange={(e) => setShipmentForm({ ...shipmentForm, transport_mode: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 text-xs focus:outline-none focus:border-indigo-500"
+                  >
+                    <option value="OCEAN_FCL">OCEAN_FCL (Full Container)</option>
+                    <option value="OCEAN_LCL">OCEAN_LCL (Less than Container)</option>
+                    <option value="AIR_FREIGHT">AIR_FREIGHT (Air Cargo)</option>
+                    <option value="LAND_TRUCK">LAND_TRUCK (Cross-border Truck)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1">Freight Terms</label>
+                  <select
+                    value={shipmentForm.freight_terms}
+                    onChange={(e) => setShipmentForm({ ...shipmentForm, freight_terms: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 text-xs focus:outline-none focus:border-indigo-500"
+                  >
+                    <option value="FREIGHT_PREPAID">FREIGHT_PREPAID (CFR/CIF/CIP/DAP)</option>
+                    <option value="FREIGHT_COLLECT">FREIGHT_COLLECT (EXW/FCA/FOB)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1">Carrier Name</label>
+                  <input
+                    type="text"
+                    value={shipmentForm.carrier_name}
+                    onChange={(e) => setShipmentForm({ ...shipmentForm, carrier_name: e.target.value })}
+                    placeholder="e.g. Maersk Line / Hapag-Lloyd"
+                    required
+                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 text-xs focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1">Vessel / Flight & Voyage</label>
+                  <input
+                    type="text"
+                    value={shipmentForm.vessel_or_flight}
+                    onChange={(e) => setShipmentForm({ ...shipmentForm, vessel_or_flight: e.target.value })}
+                    placeholder="e.g. Maersk Karachi V.2026"
+                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 text-xs focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1">Port of Loading</label>
+                  <input
+                    type="text"
+                    value={shipmentForm.port_of_loading}
+                    onChange={(e) => setShipmentForm({ ...shipmentForm, port_of_loading: e.target.value })}
+                    placeholder="e.g. Port Qasim, Karachi"
+                    required
+                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 text-xs focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1">Port of Discharge</label>
+                  <input
+                    type="text"
+                    value={shipmentForm.port_of_discharge}
+                    onChange={(e) => setShipmentForm({ ...shipmentForm, port_of_discharge: e.target.value })}
+                    placeholder="e.g. Hamburg Port, Germany"
+                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 text-xs focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+
+              {shipmentForm.transport_mode.startsWith('OCEAN') && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-400 mb-1">Container Number</label>
+                    <input
+                      type="text"
+                      value={shipmentForm.container_no}
+                      onChange={(e) => setShipmentForm({ ...shipmentForm, container_no: e.target.value })}
+                      placeholder="e.g. MSCU7654321"
+                      className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 text-xs font-mono focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-400 mb-1">High-Security Seal No.</label>
+                    <input
+                      type="text"
+                      value={shipmentForm.seal_no}
+                      onChange={(e) => setShipmentForm({ ...shipmentForm, seal_no: e.target.value })}
+                      placeholder="e.g. PK-9921"
+                      className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 text-xs font-mono focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1">Packages</label>
+                  <input
+                    type="number"
+                    value={shipmentForm.packages_count}
+                    onChange={(e) => setShipmentForm({ ...shipmentForm, packages_count: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 text-xs focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1">Gross Wt (kg)</label>
+                  <input
+                    type="number"
+                    value={shipmentForm.gross_weight_kg}
+                    onChange={(e) => setShipmentForm({ ...shipmentForm, gross_weight_kg: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 text-xs focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1">Volume (CBM)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={shipmentForm.volume_cbm}
+                    onChange={(e) => setShipmentForm({ ...shipmentForm, volume_cbm: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 text-xs focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsShipmentModalOpen(false)}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isShipmentSubmitting}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-indigo-600/20 transition disabled:opacity-50"
+                >
+                  {isShipmentSubmitting ? 'Booking...' : 'Confirm Booking'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: Update Milestone ────────────────────────────────── */}
+      {selectedMilestone && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div>
+                <h3 className="text-base font-bold text-white">Update Milestone Progress</h3>
+                <p className="text-xs text-slate-400 font-mono">{selectedMilestone.title}</p>
+              </div>
+              <button onClick={() => setSelectedMilestone(null)} className="text-slate-400 hover:text-white">✕</button>
+            </div>
+
+            <form onSubmit={handleUpdateMilestone} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 mb-1">Status</label>
+                <select
+                  value={milestoneForm.status}
+                  onChange={(e) => setMilestoneForm({ ...milestoneForm, status: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 text-xs focus:outline-none focus:border-indigo-500"
+                >
+                  <option value="PENDING">PENDING (Scheduled)</option>
+                  <option value="IN_PROGRESS">IN_PROGRESS (Underway)</option>
+                  <option value="COMPLETED">COMPLETED (Done)</option>
+                  <option value="DELAYED">DELAYED (Behind Schedule)</option>
+                  <option value="SKIPPED">SKIPPED (Not Applicable)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 mb-1">Actual Completion Date</label>
+                <input
+                  type="date"
+                  value={milestoneForm.actual_date}
+                  onChange={(e) => setMilestoneForm({ ...milestoneForm, actual_date: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 text-xs focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 mb-1">Location / Port Facility</label>
+                <input
+                  type="text"
+                  value={milestoneForm.location}
+                  onChange={(e) => setMilestoneForm({ ...milestoneForm, location: e.target.value })}
+                  placeholder="e.g. QICT Terminal 1, Port Qasim"
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 text-xs focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedMilestone(null)}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isMilestoneUpdating}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-indigo-600/20 transition disabled:opacity-50"
+                >
+                  {isMilestoneUpdating ? 'Updating...' : 'Save Milestone'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: Record Payment Receipt ──────────────────────────── */}
+      {isPaymentModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div>
+                <h3 className="text-base font-bold text-white">Record Export Payment Receipt</h3>
+                <p className="text-xs text-slate-400 font-mono">Reconciles SBP e-Form E and Foreign Exchange manual ledger</p>
+              </div>
+              <button onClick={() => setIsPaymentModalOpen(false)} className="text-slate-400 hover:text-white">✕</button>
+            </div>
+
+            <form onSubmit={handleRecordPayment} className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1">Payment Type</label>
+                  <select
+                    value={paymentForm.payment_type}
+                    onChange={(e) => setPaymentForm({ ...paymentForm, payment_type: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 text-xs focus:outline-none focus:border-indigo-500"
+                  >
+                    <option value="ADVANCE">ADVANCE (Pre-shipment e-Form R)</option>
+                    <option value="BANK_TRANSFER">BANK_TRANSFER (SWIFT MT103)</option>
+                    <option value="LC_DRAWING">LC_DRAWING (Letter of Credit)</option>
+                    <option value="DP_COLLECTION">DP_COLLECTION (Documents Against Payment)</option>
+                    <option value="DA_COLLECTION">DA_COLLECTION (Documents Against Acceptance)</option>
+                    <option value="OPEN_ACCOUNT">OPEN_ACCOUNT (Open Account Remittance)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1">Currency</label>
+                  <input
+                    type="text"
+                    value={paymentForm.currency}
+                    onChange={(e) => setPaymentForm({ ...paymentForm, currency: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 text-xs font-mono focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1">Amount Received</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="1"
+                    value={paymentForm.amount}
+                    onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })}
+                    placeholder="25000.00"
+                    required
+                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 text-xs font-mono focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1">Realized FX Rate (PKR/USD)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={paymentForm.realized_exchange_rate}
+                    onChange={(e) => setPaymentForm({ ...paymentForm, realized_exchange_rate: e.target.value })}
+                    placeholder="278.50"
+                    required
+                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 text-xs font-mono focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1">SWIFT / Bank / e-Form R Reference</label>
+                  <input
+                    type="text"
+                    value={paymentForm.bank_reference}
+                    onChange={(e) => setPaymentForm({ ...paymentForm, bank_reference: e.target.value })}
+                    placeholder="e.g. SWIFT-2026-9921 / EFE-R-01"
+                    required
+                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 text-xs font-mono focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1">Authorized Dealer Bank</label>
+                  <input
+                    type="text"
+                    value={paymentForm.bank_name}
+                    onChange={(e) => setPaymentForm({ ...paymentForm, bank_name: e.target.value })}
+                    placeholder="e.g. Habib Bank Limited (HBL)"
+                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 text-xs focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 mb-1">Transaction Notes</label>
+                <textarea
+                  rows="2"
+                  value={paymentForm.notes}
+                  onChange={(e) => setPaymentForm({ ...paymentForm, notes: e.target.value })}
+                  placeholder="e.g. 30% advance received under contract terms, credited to exporter USD account."
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 text-xs focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsPaymentModalOpen(false)}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isPaymentSubmitting}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-emerald-600/20 transition disabled:opacity-50"
+                >
+                  {isPaymentSubmitting ? 'Recording...' : 'Record Payment'}
                 </button>
               </div>
             </form>

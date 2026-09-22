@@ -39,6 +39,13 @@ class Settings(BaseSettings):
     HF_API_KEY_4: Optional[str] = None
     HF_API_KEY_5: Optional[str] = None
 
+    # ── Vector Database (Qdrant) & Knowledge Docs ────────────
+    QDRANT_URL: Optional[str] = None
+    QDRANT_API_KEY: Optional[str] = None
+    QDRANT_PATH: str = "qdrant_storage"
+    QDRANT_COLLECTION_NAME: str = "exportos_copilot"
+    DOCS_DATA_DIR: str = "data/docs"
+
     # ── Storage ───────────────────────────────────────────────
     UPLOAD_DIR: str = "uploads"
 

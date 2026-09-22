@@ -1,178 +1,340 @@
-# ExportOS — AI Export Operations Copilot
+# ExportOS
 
-ExportOS is an AI-assisted export operations platform tailored for small and medium-sized exporters in Pakistan. It centralizes and streamlines the entire export lifecycle into one authoritative record:
+**AI Export Operations Copilot for Pakistani SME exporters**
 
-$$\text{Buyer Inquiry} \longrightarrow \text{AI Interpretation} \longrightarrow \text{Inventory Check} \longrightarrow \text{Incoterm Costing} \longrightarrow \text{Quotation Approval} \longrightarrow \text{Order Confirmation} \longrightarrow \text{Document Generation} \longrightarrow \text{Shipment \& Payment}$$
+ExportOS is a multi-tenant operations platform that keeps one authoritative record of an export deal from first buyer contact through payment and closure. Natural language (emails, RFQs, chat pastes, uploaded files) is interpreted by an LLM. Inventory, costing, state transitions, documents, compliance, and analytics stay **deterministic** — calculated in code, never invented by the model.
 
-ExportOS strictly maintains a **deterministic boundary**: AI handles unstructured natural language interpretation (extracting specs from buyer emails, RFQs, and messages), while critical operations (stock availability, reservation, currency conversions, Incoterm costing, margin calculations, and state transitions) are executed deterministically.
-
----
-
-## Key Features
-
-- **Multi-Tenant Architecture & RBAC**: Complete tenant isolation for export organisations with role-based access control (`ADMIN`, `EXPORT_MANAGER`, `DOCUMENTATION_OFFICER`, `SALES`, `ACCOUNTS`).
-- **Product Catalogue**: Centralized master SKU records with unit of measure, carton capacities, net weights, default Pakistan HS codes, and base factory costs.
-- **Deterministic Inventory Engine**: Real-time stock tracking with math: $\text{Available} = \text{Current} - \text{Reserved}$.
-- **Inquiry Ingestion & Artifacts**: Multi-channel raw intake (manual copy-paste, file uploads of PDF/Word/Excel, and inbound webhook endpoints) stored with cryptographic SHA-256 integrity hashes.
-- **AI Extraction with Qwen 2.5 & Key Rotation**: Uses Hugging Face inference (`Qwen/Qwen2.5-Coder-32B-Instruct`) with automatic key rotation across multiple API tokens on HTTP 429 rate limits, accompanied by field-level confidence scores and verbatim evidence quotes.
-- **Inventory Shortfall Resolution**: Instant warehouse lookup upon inquiry extraction with commercial resolution gateways (`[Adjust Quantity to Available]` or `[Mark for Production/Procurement]`).
-- **Incoterm Costing & Quotation Engine**: Fixed-point decimal arithmetic supporting Incoterms 2020 (`EXW`, `FCA`, `FOB`, `CFR`, `CIF`, `CPT`, `CIP`, `DAP`, `DDP`), itemized cost breakdowns (freight, packaging, origin THC, insurance, duties), and managerial quote approvals.
-- **Deal State Machine & Immutable Audit Log**: Strict legal lifecycle state progression (`INQUIRY` → `QUOTED` → `CONFIRMED` → `IN_PRODUCTION` → `DOCS_READY` → `SHIPPED` → `PAID` → `CLOSED`) with complete audit trails.
+```text
+Buyer inquiry → AI extraction → inventory check → Incoterm costing
+    → quote approval → order confirmation → documents → compliance
+    → shipment → payment → closed
+```
 
 ---
 
-## Technology Stack
+## Why it exists
 
-| Layer | Technology |
-| :--- | :--- |
-| **Backend Framework** | Python 3.11+ · FastAPI · Pydantic v2 |
-| **Database & ORM** | PostgreSQL · SQLAlchemy 2.0 (Async via `asyncpg`) |
-| **Migrations** | Alembic |
-| **AI / LLM Engine** | Hugging Face Router · Qwen 2.5 with Auto-Rotating Keys |
-| **Frontend SPA** | React 18 · Vite · Tailwind CSS v3 · React Router v6 |
-| **Testing** | Pytest · Pytest-Asyncio · HTTPX |
+Export work for SMEs is usually scattered across WhatsApp, email, quotation spreadsheets, invoice templates, and informal checklists. That produces:
+
+- Promised stock that is already reserved
+- Quotes that do not match Incoterm obligations
+- Documents that disagree with each other
+- Missed State Bank of Pakistan (SBP) foreign-exchange realization windows
+
+ExportOS puts those steps in one product, with role-based access, tenant isolation, and an audit trail.
 
 ---
 
-## Quickstart Guide
+## Features
 
-### 1. Prerequisites
+### Organisation and access
+
+- Multi-tenant organisations with full data isolation
+- JWT authentication (register company + first admin, then invite the team)
+- Roles: `ADMIN`, `EXPORT_MANAGER`, `DOCUMENTATION_OFFICER`, `SALES`, `ACCOUNTS`
+
+### Catalogue and inventory
+
+- SKU master with UoM, carton packing, net weight, default Pakistan HS code, and factory cost
+- Deterministic availability: **available = current − reserved**
+- Reservations on order confirmation so two people cannot sell the same units
+- Shortfall handling: adjust quantity to what is in stock, or mark the deal for production / procurement
+
+### Inquiries and AI extraction
+
+- Intake from paste, PDF / Word / Excel upload, and inbound webhook
+- Artifacts stored with SHA-256 integrity hashes
+- Extraction via Hugging Face (`Qwen/Qwen2.5-Coder-32B-Instruct`) with rotating API keys on rate limits
+- Field-level confidence and evidence quotes; human review before the deal is trusted
+
+### Costing, quotes, and deal lifecycle
+
+- Incoterms 2020: `EXW`, `FCA`, `FOB`, `CFR`, `CIF`, `CPT`, `CIP`, `DAP`, `DDP`
+- Fixed-point decimal arithmetic for freight, packing, origin THC, insurance, and duties
+- Quote approval before confirmation
+- Directed state machine with immutable audit log:
+
+```text
+INQUIRY → QUOTED → CONFIRMED → IN_PRODUCTION → DOCS_READY
+        → SHIPPED → PAID → CLOSED
+```
+
+`CANCELLED` is allowed until shipment. Terminal states do not reverse.
+
+### Documents and consistency
+
+- Generated set: Proforma Invoice, Commercial Invoice, Packing List, Certificate of Origin
+- HTML preview and approval workflow
+- Cross-document consistency checker (quantities, values, Incoterm, ports, parties)
+
+### Compliance
+
+- SBP foreign-exchange rules (Chapter XII and related circulars)
+- Destination customs hints (US CBP, EU REX)
+- HS code advisory against the product master
+
+### Shipment and payment
+
+- Shipments with Incoterm-aware milestone sequences
+- Payment recording and deal-level settlement summary
+- Receivables aging and SBP 120-day realization exposure
+
+### Export Copilot
+
+- Grounded Q&A: live deal data + markdown knowledge corpus in Qdrant
+- Seven-pillar **ready-to-ship** radar (inventory, quote, documents, compliance, shipment, payment, and related blockers)
+- Commercial buyer-message drafts with a human-in-the-loop gate (nothing is sent automatically)
+- Default local Qdrant storage (`backend/qdrant_storage`); optional remote Qdrant via env
+
+### Executive dashboard
+
+- KPI ribbon, pipeline waterfall, Incoterm and SKU profitability
+- Destination market view
+- JSON executive report download
+- USD / PKR toggle in the UI
+
+---
+
+## Architecture
+
+| Layer | Stack |
+| --- | --- |
+| API | Python 3.11+ · FastAPI · Pydantic v2 · Uvicorn |
+| Data | PostgreSQL · SQLAlchemy 2.0 (async / `asyncpg`) · Alembic |
+| Auth | JWT (HS256) · bcrypt |
+| AI | Hugging Face Inference Router · Qwen 2.5 Coder |
+| Vectors | Qdrant (embedded local path or cloud URL) |
+| Web | React 19 · Vite · Tailwind CSS 3 · React Router 7 |
+| Tests | Pytest · pytest-asyncio · HTTPX |
+
+The Vite dev server proxies `/api` to `http://localhost:8000`.
+
+---
+
+## Prerequisites
 
 - **Python 3.11+**
-- **Node.js 18+** & **npm**
-- **PostgreSQL** running locally
+- **Node.js 18+** and npm
+- **PostgreSQL 14+** running locally (or a reachable instance)
+
+Hugging Face keys are optional. Without them, extraction and Copilot chat fall back to deterministic / grounded behaviour rather than live LLM calls.
 
 ---
 
-### 2. Database Setup
+## Quick start
 
-Create the local PostgreSQL database:
+### 1. Database
 
 ```sql
 CREATE DATABASE exportos;
 ```
 
----
+Default connection (override in `.env`):
 
-### 3. Backend Setup
+```text
+postgresql+asyncpg://postgres:postgres@localhost:5432/exportos
+```
+
+### 2. Backend
 
 ```bash
 cd backend
 
-# 1. Create and activate virtual environment
 python -m venv venv
 
-# Windows:
+# Windows
 venv\Scripts\activate
-# macOS / Linux:
+# macOS / Linux
 # source venv/bin/activate
 
-# 2. Install dependencies
 pip install -r requirements.txt
+pip install qdrant-client
 
-# 3. Configure environment variables
-# Copy .env.example to .env and adjust DATABASE_URL or Hugging Face keys if needed
 copy .env.example .env
+# macOS / Linux: cp .env.example .env
 
-# 4. Run database migrations
 alembic upgrade head
 
-# 5. (Optional) Seed realistic Pakistani export products & inventory
-python seed_data.py
-
-# 6. Start the backend development server
 python run.py
 ```
 
-The backend server will run at **`http://localhost:8000`**:
-- **Interactive Swagger Docs**: [http://localhost:8000/api/docs](http://localhost:8000/api/docs)
-- **Alternative ReDoc**: [http://localhost:8000/api/redoc](http://localhost:8000/api/redoc)
-- **Healthcheck**: [http://localhost:8000/api/health](http://localhost:8000/api/health)
+API: [http://localhost:8000](http://localhost:8000)
 
----
+| Resource | URL |
+| --- | --- |
+| OpenAPI (dev) | [http://localhost:8000/api/docs](http://localhost:8000/api/docs) |
+| ReDoc (dev) | [http://localhost:8000/api/redoc](http://localhost:8000/api/redoc) |
+| Health | [http://localhost:8000/api/health](http://localhost:8000/api/health) |
 
-### 4. Frontend Setup
+OpenAPI is disabled when `APP_ENV` is not `development`.
 
-In a separate terminal:
+### 3. Frontend
+
+In a second terminal:
 
 ```bash
 cd frontend
-
-# 1. Install frontend packages
 npm install
-
-# 2. Start the Vite dev server
 npm run dev
 ```
 
-The web application will open at **`http://localhost:5173`**.
+App: [http://localhost:5173](http://localhost:5173)
+
+Register a company (creates the organisation and the first `ADMIN` user), then sign in.
 
 ---
 
-## Project Structure
+## Environment
+
+Copy `backend/.env.example` to `backend/.env`.
+
+| Variable | Purpose |
+| --- | --- |
+| `DATABASE_URL` | Async PostgreSQL URL (`postgresql+asyncpg://…`) |
+| `SECRET_KEY` | JWT signing secret (change in production) |
+| `JWT_SECRET_KEY` | Optional override; falls back to `SECRET_KEY` |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | Access token lifetime (default 24 hours) |
+| `CORS_ORIGINS` | Comma-separated origins (default `http://localhost:5173`) |
+| `APP_ENV` | `development` or `production` |
+| `HF_MODEL` | Hugging Face model id |
+| `HF_API_URL` | Chat completions endpoint |
+| `HF_API_KEY_1` … `HF_API_KEY_5` | Rotating HF tokens |
+| `HF_API_KEYS` | Optional comma-separated extra tokens |
+| `QDRANT_PATH` | Local storage directory (default `qdrant_storage`) |
+| `QDRANT_URL` / `QDRANT_API_KEY` | Use a remote Qdrant instead of local files |
+| `QDRANT_COLLECTION_NAME` | Default `exportos_copilot` |
+| `DOCS_DATA_DIR` | Knowledge markdown folder (default `data/docs`) |
+| `UPLOAD_DIR` | Inquiry artifact uploads |
+
+---
+
+## First Copilot index
+
+After the API is up, an `ADMIN` or `EXPORT_MANAGER` can re-index the regulatory corpus:
+
+```http
+POST /api/copilot/sync-docs
+Authorization: Bearer <token>
+```
+
+Knowledge files live in `backend/data/docs/`:
+
+- Incoterms 2020 rules
+- SBP FE Manual Chapter XII
+- SBP FE circulars
+- TDAP export policy notes
+- US CBP and EU REX destination customs notes
+
+Deal records can be synced with `POST /api/copilot/deals/{deal_id}/sync-vector`.
+
+---
+
+## Application map
+
+| Route | Purpose |
+| --- | --- |
+| `/` | Executive dashboard and analytics |
+| `/copilot` | Grounded chat, readiness radar, drafts |
+| `/inquiries` | Intake and extraction |
+| `/deals` | Costing, documents, compliance, shipment, payment |
+| `/products` | SKU catalogue |
+| `/inventory` | Stock, reservations, shortfalls |
+| `/team` | Users and roles |
+| `/login`, `/register` | Auth |
+
+---
+
+## API surface
+
+Mounted at `/api`:
+
+| Area | Prefix / routes |
+| --- | --- |
+| Health | `GET /health` |
+| Auth | `/auth/register`, `/auth/login`, `/auth/me` |
+| Users & organisation | `/users`, organisation profile |
+| Products & inventory | `/products`, `/inventory` |
+| Deals & costing | `/deals` |
+| Inquiries | `/inquiries` |
+| Extraction | `/extraction` |
+| Documents | `/deals/{id}/documents`, consistency check |
+| Compliance | `/compliance` |
+| Logistics | `/shipments`, `/payments` |
+| Copilot | `/copilot` |
+| Analytics | `/analytics` |
+
+Use the OpenAPI UI for request and response schemas.
+
+---
+
+## Project layout
 
 ```text
 ExportOS-/
 ├── backend/
-│   ├── alembic/                  # Database migration scripts
-│   │   └── versions/             # Migration revisions (0001 to 0005)
+│   ├── alembic/versions/     # 0001–0008 schema revisions
 │   ├── app/
-│   │   ├── api/                  # API routers (auth, deals, inventory, products, etc.)
-│   │   ├── core/                 # Auth dependencies, JWT security & tenant scoping
-│   │   ├── models/               # SQLAlchemy declarative domain models
-│   │   ├── schemas/              # Pydantic request/response schemas
-│   │   ├── services/             # Business services (AI extractor, costing, inventory, state)
-│   │   ├── config.py             # Settings & environment validation
-│   │   ├── database.py           # Async SQLAlchemy engine session factory
-│   │   └── main.py               # FastAPI application factory
-│   ├── tests/                    # Pytest unit & integration test suite
-│   ├── run.py                    # Server startup script
-│   ├── seed_data.py              # Sample product catalogue and inventory seeder
-│   └── requirements.txt          # Python backend dependencies
-│
+│   │   ├── api/              # FastAPI routers
+│   │   ├── core/             # JWT, tenant scoping, RBAC
+│   │   ├── models/           # SQLAlchemy models
+│   │   ├── schemas/          # Pydantic DTOs
+│   │   ├── services/         # Domain logic (costing, inventory, Copilot, …)
+│   │   ├── config.py
+│   │   ├── database.py
+│   │   └── main.py
+│   ├── data/docs/            # Copilot knowledge corpus
+│   ├── tests/
+│   ├── run.py
+│   ├── requirements.txt
+│   └── .env.example
 ├── frontend/
-│   ├── src/
-│   │   ├── components/           # Reusable UI elements (Navbar, Layout, ProtectedRoute)
-│   │   ├── context/              # Global state (AuthContext)
-│   │   ├── lib/                  # Axios HTTP client with auto-refresh JWT tokens
-│   │   ├── pages/                # Page views (Deals, Inquiries, Inventory, Products, Team, Login)
-│   │   ├── App.jsx               # React Router configuration
-│   │   └── main.jsx              # Application entry point
-│   ├── package.json              # Frontend dependencies and scripts
-│   ├── tailwind.config.js        # Tailwind styling configuration
-│   └── vite.config.js            # Vite bundler & API proxy configuration
-│
+│   └── src/
+│       ├── components/       # Layout, ProtectedRoute
+│       ├── context/          # Auth
+│       ├── lib/api.js        # Fetch client + JWT
+│       └── pages/
 └── README.md
 ```
 
 ---
 
-## Running Tests
+## Tests
 
-Run the backend test suite:
+From `backend` with the virtualenv active:
 
 ```bash
-cd backend
 pytest -v
 ```
 
+Coverage includes inventory availability, costing and state transitions, documents and consistency, compliance / HS advice, shipments and payments, Copilot retrieval, and executive analytics.
+
+Some Copilot tests expect Qdrant and the docs folder. Install `qdrant-client` before running the full suite.
+
 ---
 
-## Development Roadmap
+## Production notes
 
-- [x] **Phase 0** — Project Foundation, FastAPI Factory, PostgreSQL Engine, Vite + Tailwind Setup
-- [x] **Phase 1** — Multi-Tenant Authentication, User Roles & Tenant Isolation
-- [x] **Phase 2** — Product Catalogue CRUD & Master SKU Specifications
-- [x] **Phase 3** — Deterministic Inventory Engine, Availability Checking & Reservations
-- [x] **Phase 4** — Central Deal Model, State Machine Progression & Immutable Audit Logging
-- [x] **Phase 5** — Inquiry Multi-Channel Ingestion & Cryptographic Artifact Vault
-- [x] **Phase 6** — AI Deal Extraction Engine (Qwen 2.5 with Auto-Rotating API Keys)
-- [x] **Phase 7** — AI → Inventory Matching & Interactive Shortfall Resolution
-- [x] **Phase 8** — Deterministic Incoterm Costing Engine & Quotation Approvals
-- [x] **Phase 9** — Order Confirmation & Automatic Inventory Allocation
-- [x] **Phase 10** — Multi-Document Generation (Proforma Invoice, Commercial Invoice, Packing List, CoO)
-- [x] **Phase 11** — Cross-Document Consistency Checker (Deterministic Audit Engine)
-- [ ] **Phase 12** — Compliance Engine, SBP FX Regulations & HS Code Advisory
-- [ ] **Phase 13** — Shipment & Milestone Logistics Tracking
-- [ ] **Phase 14** — Payment Reconciliation & Electronic Form-E / Financial Closure
-- [ ] **Phase 15** — Executive Dashboard, Profitability Reports & Operational Analytics
+- Replace `SECRET_KEY` (and use `JWT_SECRET_KEY` if you split secrets).
+- Set `APP_ENV=production` so `/api/docs` is not public.
+- Restrict `CORS_ORIGINS` to the real frontend origin.
+- Run PostgreSQL with backups; Alembic is the only supported schema path (`alembic upgrade head`).
+- Treat Copilot and HS/SBP output as **advisory**. Confirm with your bank, freight forwarder, and counsel before filing or shipping.
+
+---
+
+## Design boundary
+
+| AI may | Code must |
+| --- | --- |
+| Parse unstructured buyer text | Compute stock and reservations |
+| Draft emails for a human to send | Compute Incoterm totals and margins |
+| Retrieve and cite indexed policy text | Enforce deal state transitions |
+| Explain a shortfall or blocker | Generate and cross-check documents |
+
+If the model and the database disagree, the database wins.
+
+---
+
+## License
+
+Proprietary / unpublished unless a license file is added to this repository.

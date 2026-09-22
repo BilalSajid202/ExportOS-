@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 /* ── Sidebar Navigation Items ─────────────────────────────── */
 const navItems = [
   { to: '/', icon: '📊', label: 'Dashboard' },
+  { to: '/copilot', icon: '🤖', label: 'Export Copilot' },
   { to: '/inquiries', icon: '📥', label: 'Inquiries' },
   { to: '/deals', icon: '📋', label: 'Deals' },
   { to: '/products', icon: '📦', label: 'Products' },

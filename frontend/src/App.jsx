@@ -10,6 +10,7 @@ import Products from './pages/Products';
 import Inventory from './pages/Inventory';
 import Deals from './pages/Deals';
 import Inquiries from './pages/Inquiries';
+import Copilot from './pages/Copilot';
 
 export default function App() {
   return (
@@ -29,6 +30,8 @@ export default function App() {
             }
           >
             <Route path="/" element={<Dashboard />} />
+            <Route path="/copilot" element={<Copilot />} />
+            <Route path="/copilot/:dealId" element={<Copilot />} />
             <Route path="/inquiries" element={<Inquiries />} />
             <Route path="/deals" element={<Deals />} />
             <Route path="/deals/:dealId" element={<Deals />} />
